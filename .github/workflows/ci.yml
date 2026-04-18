@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.*"
+          enable-cache: true
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Sync dependencies
+        run: just setup-py
+
+      - name: Lint
+        run: just lint-py
+
+      - name: Format check
+        run: just fmt-check-py
+
+      - name: Type check
+        run: just typecheck-py
+
+      - name: Test
+        run: just test-py
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install
+        run: just setup-ts
+
+      - name: Lint
+        run: just lint-ts
+
+      - name: Format check
+        run: just fmt-check-ts
+
+      - name: Type check
+        run: just typecheck-ts
+
+      - name: Test
+        run: just test-ts
+
+      - name: Build
+        run: pnpm -r build
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build signoff-core image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/signoff-core/Dockerfile
+          push: false
+          load: true
+          tags: signoff-core:ci
+          cache-from: type=gha,scope=signoff-core
+          cache-to: type=gha,mode=max,scope=signoff-core
+
+      - name: Build signoff-mcp image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/signoff-mcp/Dockerfile
+          push: false
+          load: true
+          tags: signoff-mcp:ci
+          cache-from: type=gha,scope=signoff-mcp
+          cache-to: type=gha,mode=max,scope=signoff-mcp
+
+      - name: Build signoff-code sandbox image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/signoff-code/Dockerfile
+          push: false
+          load: true
+          tags: signoff-code-sandbox:ci
+          cache-from: type=gha,scope=signoff-code
+          cache-to: type=gha,mode=max,scope=signoff-code
+
+      - name: Smoke-test signoff-mcp image
+        run: |
+          docker run --rm signoff-mcp:ci python -m signoff_mcp --health
+
+      - name: Scan signoff-mcp image (trivy)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: signoff-mcp:ci
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true

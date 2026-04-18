@@ -1,0 +1,3 @@
+packages:
+  - "packages/signoff-sdk-ts"
+  # cloud/dashboard joins the workspace once its package.json lands in Phase 2.

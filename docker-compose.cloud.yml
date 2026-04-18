@@ -1,0 +1,70 @@
+# Cloud services for local dev. Layered on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cloud.yml up
+#
+# (or `just cloud-dev`).
+#
+# Services here are placeholders until Phase 2 work begins. Dockerfiles
+# under cloud/*/Dockerfile are minimal stubs so `just build-images-all`
+# succeeds against the empty scaffold.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: signoff-postgres
+    environment:
+      POSTGRES_DB: signoff
+      POSTGRES_USER: signoff
+      POSTGRES_PASSWORD: signoff_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - signoff-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: signoff-redis
+    ports:
+      - "6379:6379"
+
+  cloud-api:
+    build:
+      context: .
+      dockerfile: cloud/api/Dockerfile
+    image: signoff-cloud-api:dev
+    container_name: signoff-cloud-api
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      SIGNOFF_DB_URL: postgresql://signoff:signoff_dev@postgres:5432/signoff
+      SIGNOFF_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8080:8080"
+
+  cloud-worker:
+    build:
+      context: .
+      dockerfile: cloud/workers/Dockerfile
+    image: signoff-cloud-worker:dev
+    container_name: signoff-cloud-worker
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      SIGNOFF_DB_URL: postgresql://signoff:signoff_dev@postgres:5432/signoff
+      SIGNOFF_REDIS_URL: redis://redis:6379/0
+
+  cloud-dashboard:
+    build:
+      context: .
+      dockerfile: cloud/dashboard/Dockerfile
+    image: signoff-cloud-dashboard:dev
+    container_name: signoff-cloud-dashboard
+    depends_on:
+      - cloud-api
+    ports:
+      - "3000:3000"
+
+volumes:
+  signoff-postgres-data:

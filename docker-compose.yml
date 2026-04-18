@@ -1,0 +1,49 @@
+# OSS local dev stack. Run with: `just dev` (or `docker compose up`).
+#
+# This file intentionally only includes services that ship in the OSS
+# packages. Cloud services (API, workers, dashboard, Postgres, Redis) live
+# in docker-compose.cloud.yml and are layered on with `just cloud-dev`.
+
+services:
+  signoff-mcp:
+    build:
+      context: .
+      dockerfile: packages/signoff-mcp/Dockerfile
+    image: signoff-mcp:dev
+    container_name: signoff-mcp
+    init: true
+    stdin_open: true
+    tty: true
+    environment:
+      SIGNOFF_LOG_LEVEL: info
+    ports:
+      - "8765:8765"
+    healthcheck:
+      test: ["CMD", "python", "-m", "signoff_mcp", "--health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Pre-built sandbox image DockerRuntime will use for signoff-code verifiers.
+  # Built here so `just dev` warms the image cache; not started as a service.
+  signoff-code-sandbox:
+    build:
+      context: .
+      dockerfile: packages/signoff-code/Dockerfile
+    image: signoff-code-sandbox:dev
+    profiles:
+      - build-only
+    command: ["python", "-c", "print('sandbox image built')"]
+
+  # Workspace-aware base image (all Signoff Python packages preinstalled).
+  # Used in CI verification and available for downstream consumers who want a
+  # single image with everything. Not started by `just dev`.
+  signoff-workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: signoff-workspace:dev
+    profiles:
+      - build-only
+    command: ["python", "-c", "import signoff, signoff_mcp, signoff_code; print('workspace image ready')"]
