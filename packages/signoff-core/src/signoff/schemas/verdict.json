@@ -1,0 +1,421 @@
+{
+  "$defs": {
+    "BlockerEntry": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.7 BlockerEntry.",
+      "properties": {
+        "claim_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Target claim id; null for whole-deliverable.",
+          "title": "Claim Id"
+        },
+        "claim_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Echo of the claim text to aid retry without re-fetch.",
+          "title": "Claim Text"
+        },
+        "evidence_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short, agent-relevant excerpt from evidence.",
+          "title": "Evidence Excerpt"
+        },
+        "issue": {
+          "description": "reason from the VerifierResult.",
+          "minLength": 1,
+          "title": "Issue",
+          "type": "string"
+        },
+        "suggested_repair": {
+          "description": "suggestion from the VerifierResult (non-null by \u00a73.5 invariant).",
+          "minLength": 1,
+          "title": "Suggested Repair",
+          "type": "string"
+        },
+        "verifier": {
+          "description": "Which verifier produced the entry.",
+          "pattern": "^[a-z0-9_\\-]+\\.[a-z0-9_]+$",
+          "title": "Verifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "verifier",
+        "issue",
+        "suggested_repair"
+      ],
+      "title": "BlockerEntry",
+      "type": "object"
+    },
+    "FeedbackPacket": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.7 FeedbackPacket.\n\n``passed`` is always ``False`` \u2014 the packet exists only for failed\nverdicts. Present as a structural convenience so consumers can\nswitch on a single field.",
+      "properties": {
+        "blockers": {
+          "description": "Entries for results with passed=false and severity=blocker.",
+          "items": {
+            "$ref": "#/$defs/BlockerEntry"
+          },
+          "title": "Blockers",
+          "type": "array"
+        },
+        "cost_usd": {
+          "description": "Total cost of the run.",
+          "minimum": 0.0,
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "passed": {
+          "const": false,
+          "default": false,
+          "description": "Always false; feedback packets are emitted only for failed verdicts.",
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "protocol_version": {
+          "description": "Semver of the protocol.",
+          "pattern": "^\\d+(\\.\\d+){1,2}$",
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "retry_budget_remaining": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Remaining retry count if caller set a retry budget.",
+          "title": "Retry Budget Remaining"
+        },
+        "warnings": {
+          "description": "Entries for results with passed=false and severity=warning.",
+          "items": {
+            "$ref": "#/$defs/WarningEntry"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cost_usd",
+        "protocol_version"
+      ],
+      "title": "FeedbackPacket",
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.4 Severity.\n\nSerialized as a lowercase string on the wire per \u00a77.1.",
+      "enum": [
+        "blocker",
+        "warning",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "VerifierResult": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.5 VerifierResult.\n\nInvariants enforced (\u00a73.5):\n\n- ``passed is False`` and ``severity is BLOCKER`` require non-null ``suggestion``.\n- ``cost_usd >= 0`` and ``duration_ms >= 0``.\n\nThe \"``passed=true`` implies severity=info OR non-empty evidence\"\ninvariant is enforced as a soft requirement: passing results must\neither declare info severity or carry evidence documenting what was\nchecked.",
+      "properties": {
+        "claim_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Target claim id; null for whole-deliverable verifiers.",
+          "title": "Claim Id"
+        },
+        "cost_usd": {
+          "description": "Estimated USD cost; negative is invalid.",
+          "minimum": 0.0,
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "duration_ms": {
+          "description": "Wall-clock duration in milliseconds.",
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "evidence": {
+          "additionalProperties": true,
+          "description": "Data the verifier observed or produced.",
+          "title": "Evidence",
+          "type": "object"
+        },
+        "passed": {
+          "description": "Whether the check passed.",
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "reason": {
+          "description": "Human-readable explanation.",
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity",
+          "description": "Severity of this result (\u00a73.4)."
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp, UTC 'Z' suffix preferred.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the verifier began (ISO-8601).",
+          "title": "Started At"
+        },
+        "suggestion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Actionable repair hint. Required when passed=false and severity=blocker.",
+          "title": "Suggestion"
+        },
+        "verifier": {
+          "description": "Fully-qualified verifier name (\u00a74.1).",
+          "pattern": "^[a-z0-9_\\-]+\\.[a-z0-9_]+$",
+          "title": "Verifier",
+          "type": "string"
+        },
+        "verifier_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Version of the verifier implementation.",
+          "title": "Verifier Version"
+        }
+      },
+      "required": [
+        "verifier",
+        "claim_id",
+        "passed",
+        "severity",
+        "reason",
+        "cost_usd",
+        "duration_ms"
+      ],
+      "title": "VerifierResult",
+      "type": "object"
+    },
+    "WarningEntry": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.7 WarningEntry.",
+      "properties": {
+        "claim_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Target claim id; null for whole-deliverable.",
+          "title": "Claim Id"
+        },
+        "claim_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Echo of the claim text to aid retry without re-fetch.",
+          "title": "Claim Text"
+        },
+        "evidence_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short, agent-relevant excerpt from evidence.",
+          "title": "Evidence Excerpt"
+        },
+        "issue": {
+          "description": "reason from the VerifierResult.",
+          "minLength": 1,
+          "title": "Issue",
+          "type": "string"
+        },
+        "suggested_repair": {
+          "description": "suggestion from the VerifierResult (non-null by \u00a73.5 invariant).",
+          "minLength": 1,
+          "title": "Suggested Repair",
+          "type": "string"
+        },
+        "verifier": {
+          "description": "Which verifier produced the entry.",
+          "pattern": "^[a-z0-9_\\-]+\\.[a-z0-9_]+$",
+          "title": "Verifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "verifier",
+        "issue",
+        "suggested_repair"
+      ],
+      "title": "WarningEntry",
+      "type": "object"
+    }
+  },
+  "description": "Implements ``docs/protocol.md`` \u00a73.6 Verdict.\n\nInvariants:\n\n- ``feedback_packet`` MUST be non-null when ``passed is False``.\n  Per \u00a73.6 it MAY be null when ``passed is True``.\n- ``cost_usd`` MUST equal the sum of ``cost_usd`` across ``results``\n  (\u00a73.6). ``duration_ms`` is the harness-wide wall clock and is\n  NOT constrained to equal the sum, since verifiers run concurrently.",
+  "properties": {
+    "completed_at": {
+      "description": "When the harness returned (ISO-8601).",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "cost_usd": {
+      "description": "Sum of cost_usd across results.",
+      "minimum": 0.0,
+      "title": "Cost Usd",
+      "type": "number"
+    },
+    "deliverable_id": {
+      "description": "The deliverable that was verified.",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+      "title": "Deliverable Id",
+      "type": "string"
+    },
+    "duration_ms": {
+      "description": "Total harness wall-clock duration.",
+      "minimum": 0,
+      "title": "Duration Ms",
+      "type": "integer"
+    },
+    "feedback_packet": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FeedbackPacket"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Present if passed=false; MAY be null if passed=true."
+    },
+    "harness_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Version of the harness implementation.",
+      "title": "Harness Version"
+    },
+    "id": {
+      "description": "Unique verdict identifier (\u00a73.1).",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "passed": {
+      "description": "Whether the harness signed off on the deliverable.",
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "protocol_version": {
+      "description": "Semver of the protocol this verdict conforms to.",
+      "pattern": "^\\d+(\\.\\d+){1,2}$",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "results": {
+      "description": "All verifier results in stable order.",
+      "items": {
+        "$ref": "#/$defs/VerifierResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "started_at": {
+      "description": "When the harness began (ISO-8601).",
+      "title": "Started At",
+      "type": "string"
+    },
+    "terminated_early": {
+      "default": false,
+      "description": "Whether the harness stopped before running all applicable verifiers.",
+      "title": "Terminated Early",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "deliverable_id",
+    "passed",
+    "cost_usd",
+    "duration_ms",
+    "protocol_version",
+    "started_at",
+    "completed_at"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

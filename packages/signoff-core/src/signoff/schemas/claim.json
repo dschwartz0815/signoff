@@ -1,0 +1,71 @@
+{
+  "description": "Implements ``docs/protocol.md`` \u00a73.3 Claim.\n\nPer \u00a73.3.1, ``kind`` MUST be either a reserved kind or a\npack-namespaced kind ``<pack_name>.<kind>``. Unscoped kinds not in\n:data:`RESERVED_CLAIM_KINDS` are rejected because the protocol\nreserves them for future versions.",
+  "properties": {
+    "evidence": {
+      "additionalProperties": true,
+      "description": "References used by verifiers (URLs, source refs, computations).",
+      "title": "Evidence",
+      "type": "object"
+    },
+    "id": {
+      "description": "Unique identifier (\u00a73.1).",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Claim kind; see \u00a73.3.1.",
+      "minLength": 1,
+      "title": "Kind",
+      "type": "string"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Extraction provenance: \"agent_asserted\", \"extractor\", \"user_supplied\".",
+      "title": "Provenance"
+    },
+    "span": {
+      "anyOf": [
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Character offsets [start, end] into the deliverable content.",
+      "title": "Span"
+    },
+    "text": {
+      "description": "Natural-language statement of the claim.",
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "text",
+    "kind"
+  ],
+  "title": "Claim",
+  "type": "object"
+}

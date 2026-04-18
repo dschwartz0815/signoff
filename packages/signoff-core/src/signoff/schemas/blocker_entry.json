@@ -1,0 +1,70 @@
+{
+  "description": "Implements ``docs/protocol.md`` \u00a73.7 BlockerEntry.",
+  "properties": {
+    "claim_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Target claim id; null for whole-deliverable.",
+      "title": "Claim Id"
+    },
+    "claim_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Echo of the claim text to aid retry without re-fetch.",
+      "title": "Claim Text"
+    },
+    "evidence_excerpt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Short, agent-relevant excerpt from evidence.",
+      "title": "Evidence Excerpt"
+    },
+    "issue": {
+      "description": "reason from the VerifierResult.",
+      "minLength": 1,
+      "title": "Issue",
+      "type": "string"
+    },
+    "suggested_repair": {
+      "description": "suggestion from the VerifierResult (non-null by \u00a73.5 invariant).",
+      "minLength": 1,
+      "title": "Suggested Repair",
+      "type": "string"
+    },
+    "verifier": {
+      "description": "Which verifier produced the entry.",
+      "pattern": "^[a-z0-9_\\-]+\\.[a-z0-9_]+$",
+      "title": "Verifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim_id",
+    "verifier",
+    "issue",
+    "suggested_repair"
+  ],
+  "title": "BlockerEntry",
+  "type": "object"
+}

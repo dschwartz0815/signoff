@@ -1,0 +1,202 @@
+{
+  "$defs": {
+    "BlockerEntry": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.7 BlockerEntry.",
+      "properties": {
+        "claim_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Target claim id; null for whole-deliverable.",
+          "title": "Claim Id"
+        },
+        "claim_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Echo of the claim text to aid retry without re-fetch.",
+          "title": "Claim Text"
+        },
+        "evidence_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short, agent-relevant excerpt from evidence.",
+          "title": "Evidence Excerpt"
+        },
+        "issue": {
+          "description": "reason from the VerifierResult.",
+          "minLength": 1,
+          "title": "Issue",
+          "type": "string"
+        },
+        "suggested_repair": {
+          "description": "suggestion from the VerifierResult (non-null by \u00a73.5 invariant).",
+          "minLength": 1,
+          "title": "Suggested Repair",
+          "type": "string"
+        },
+        "verifier": {
+          "description": "Which verifier produced the entry.",
+          "pattern": "^[a-z0-9_\\-]+\\.[a-z0-9_]+$",
+          "title": "Verifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "verifier",
+        "issue",
+        "suggested_repair"
+      ],
+      "title": "BlockerEntry",
+      "type": "object"
+    },
+    "WarningEntry": {
+      "description": "Implements ``docs/protocol.md`` \u00a73.7 WarningEntry.",
+      "properties": {
+        "claim_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Target claim id; null for whole-deliverable.",
+          "title": "Claim Id"
+        },
+        "claim_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Echo of the claim text to aid retry without re-fetch.",
+          "title": "Claim Text"
+        },
+        "evidence_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short, agent-relevant excerpt from evidence.",
+          "title": "Evidence Excerpt"
+        },
+        "issue": {
+          "description": "reason from the VerifierResult.",
+          "minLength": 1,
+          "title": "Issue",
+          "type": "string"
+        },
+        "suggested_repair": {
+          "description": "suggestion from the VerifierResult (non-null by \u00a73.5 invariant).",
+          "minLength": 1,
+          "title": "Suggested Repair",
+          "type": "string"
+        },
+        "verifier": {
+          "description": "Which verifier produced the entry.",
+          "pattern": "^[a-z0-9_\\-]+\\.[a-z0-9_]+$",
+          "title": "Verifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "verifier",
+        "issue",
+        "suggested_repair"
+      ],
+      "title": "WarningEntry",
+      "type": "object"
+    }
+  },
+  "description": "Implements ``docs/protocol.md`` \u00a73.7 FeedbackPacket.\n\n``passed`` is always ``False`` \u2014 the packet exists only for failed\nverdicts. Present as a structural convenience so consumers can\nswitch on a single field.",
+  "properties": {
+    "blockers": {
+      "description": "Entries for results with passed=false and severity=blocker.",
+      "items": {
+        "$ref": "#/$defs/BlockerEntry"
+      },
+      "title": "Blockers",
+      "type": "array"
+    },
+    "cost_usd": {
+      "description": "Total cost of the run.",
+      "minimum": 0.0,
+      "title": "Cost Usd",
+      "type": "number"
+    },
+    "passed": {
+      "const": false,
+      "default": false,
+      "description": "Always false; feedback packets are emitted only for failed verdicts.",
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "protocol_version": {
+      "description": "Semver of the protocol.",
+      "pattern": "^\\d+(\\.\\d+){1,2}$",
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "retry_budget_remaining": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Remaining retry count if caller set a retry budget.",
+      "title": "Retry Budget Remaining"
+    },
+    "warnings": {
+      "description": "Entries for results with passed=false and severity=warning.",
+      "items": {
+        "$ref": "#/$defs/WarningEntry"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "cost_usd",
+    "protocol_version"
+  ],
+  "title": "FeedbackPacket",
+  "type": "object"
+}

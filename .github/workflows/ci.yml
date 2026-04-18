@@ -45,6 +45,9 @@ jobs:
       - name: Type check
         run: just typecheck-py
 
+      - name: Schema drift check
+        run: just schemas-check
+
       - name: Test
         run: just test-py
 

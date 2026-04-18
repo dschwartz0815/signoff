@@ -1,0 +1,48 @@
+{
+  "description": "Implements ``docs/protocol.md`` \u00a73.2 Deliverable.",
+  "properties": {
+    "content": {
+      "description": "JSON-serializable payload. Shape is determined by kind.",
+      "title": "Content"
+    },
+    "created_at": {
+      "anyOf": [
+        {
+          "description": "ISO-8601 timestamp, UTC 'Z' suffix preferred.",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When the agent produced the deliverable (ISO-8601).",
+      "title": "Created At"
+    },
+    "id": {
+      "description": "Unique identifier (\u00a73.1).",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,127}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Deliverable kind (e.g., \"research_report\").",
+      "minLength": 1,
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "description": "Free-form metadata. Conventional keys listed in \u00a73.2.",
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "content"
+  ],
+  "title": "Deliverable",
+  "type": "object"
+}

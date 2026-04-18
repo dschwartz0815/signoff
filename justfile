@@ -116,5 +116,13 @@ mcp-docker:
 
 # ---------- CI ----------
 
-# Full simulation of CI: setup, lint, fmt-check, typecheck, test, image builds.
-ci: setup lint fmt-check typecheck test build-images
+# Re-export JSON schemas from the Pydantic models. Commit the result.
+schemas:
+    uv run python scripts/export_schemas.py
+
+# Fail if committed schemas have drifted from signoff.models.
+schemas-check:
+    uv run python scripts/export_schemas.py --check
+
+# Full simulation of CI: setup, lint, fmt-check, typecheck, schema drift, test, image builds.
+ci: setup lint fmt-check typecheck schemas-check test build-images
