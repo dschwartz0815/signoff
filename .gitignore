@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+.envrc
+
+# uv
+.uv_cache/
+
+# Node / TypeScript
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+.tsbuildinfo/
+coverage/
+.vitest/
+
+# Build artifacts
+*.tgz
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local overrides
+.env.local
+docker-compose.override.yml
