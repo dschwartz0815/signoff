@@ -17,6 +17,7 @@ from __future__ import annotations
 
 __version__ = "0.0.1"
 
+from signoff_judge.anthropic_judge import AnthropicJudge
 from signoff_judge.base import BaseJudge, RetryableProviderError
 from signoff_judge.config import JudgeClientConfig
 from signoff_judge.cost import RATES, ModelRates, estimate_cost
@@ -26,6 +27,7 @@ from signoff_judge.errors import (
     JudgeMalformedResponseError,
     JudgeRefusalError,
 )
+from signoff_judge.openai_judge import OpenAIJudge
 from signoff_judge.prompts import (
     PromptNotFoundError,
     PromptRegistry,
@@ -34,6 +36,7 @@ from signoff_judge.prompts import (
 
 __all__ = [
     "RATES",
+    "AnthropicJudge",
     "BaseJudge",
     "JudgeClientConfig",
     "JudgeError",
@@ -41,6 +44,7 @@ __all__ = [
     "JudgeMalformedResponseError",
     "JudgeRefusalError",
     "ModelRates",
+    "OpenAIJudge",
     "PromptNotFoundError",
     "PromptRegistry",
     "PromptTemplate",

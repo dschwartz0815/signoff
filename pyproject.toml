@@ -79,10 +79,19 @@ minversion = "8.0"
 asyncio_mode = "auto"
 testpaths = ["packages", "tests/parity"]
 python_files = ["test_*.py"]
-addopts = ["-ra", "--strict-markers", "--import-mode=importlib"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--import-mode=importlib",
+    # Live API tests are opt-in: run them with `pytest -m live` (and
+    # the env-gated credentials the tests expect).
+    "-m",
+    "not live",
+]
 markers = [
     "unit: fast unit tests (default)",
     "integration: multi-component tests, may use Docker",
     "regression: pack regression suites with ground-truth labels",
     "parity: cross-language protocol parity tests",
+    "live: calls real external APIs — opt-in, requires credentials",
 ]
