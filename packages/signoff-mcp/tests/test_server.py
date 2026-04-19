@@ -164,7 +164,7 @@ async def test_request_signoff_harness_error_becomes_tool_error(
     # the log.
     assert "RuntimeError" in str(exc_info.value)
     # Traceback logged at ERROR level server-side.
-    assert any("verify failed" in rec.getMessage() for rec in caplog.records)
+    assert any("harness.verify raised" in rec.getMessage() for rec in caplog.records)
 
 
 @pytest.mark.asyncio

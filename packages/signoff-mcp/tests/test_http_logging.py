@@ -181,3 +181,70 @@ def test_http_server_does_not_emit_uvicorn_default_format(tmp_path: Path) -> Non
         "Uvicorn's default log format leaked into stderr — log_config=None "
         "was removed or is ineffective.\n" + stderr
     )
+
+
+# Matches "INFO signoff.mcp[.*]: list_verifiers …" or the same for
+# request_signoff. Regression test: if a tool handler stops logging
+# (the Phase 0 shape of the bug), this pattern doesn't match and the
+# test fails.
+TOOL_HANDLER_LOG = re.compile(
+    r"INFO signoff\.mcp[\w.]*:\s*(?:request_signoff|list_verifiers|get_verdict)\b"
+)
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_http_tool_call_emits_signoff_mcp_log(tmp_path: Path) -> None:
+    """A real MCP call via SSE must emit a ``signoff.mcp`` log line
+    naming the tool. Catches the "tool handlers silent" class of bug —
+    access logs alone don't tell you which tool was called, which is
+    the whole point of an audit stream.
+    """
+    from mcp import ClientSession
+    from mcp.client.sse import sse_client
+
+    port = _find_free_port()
+    cfg_path = tmp_path / "signoff.yaml"
+    cfg_path.write_text('protocol_version: "0.1"\npacks: []\ndeliverables: {}\n')
+
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "signoff_mcp",
+            "--transport",
+            "http",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--config",
+            str(cfg_path),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+    )
+    try:
+        _wait_for_health(f"http://127.0.0.1:{port}/health")
+
+        # Connect as an actual MCP client and invoke list_verifiers.
+        async with sse_client(f"http://127.0.0.1:{port}/sse") as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                await session.call_tool("list_verifiers", {})
+
+        # Let the handler's log line make it out to the pipe.
+        time.sleep(0.3)
+    finally:
+        proc.terminate()
+        try:
+            _stdout, stderr_bytes = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            _stdout, stderr_bytes = proc.communicate()
+
+    stderr = stderr_bytes.decode("utf-8", errors="replace")
+    assert TOOL_HANDLER_LOG.search(stderr), (
+        "expected a signoff.mcp log line naming a tool; got:\n" + stderr
+    )

@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -123,30 +124,58 @@ class SignoffMCPServer:
         if name == "list_verifiers":
             return _ok_content(await self._handle_list_verifiers())
         if name == "get_verdict":
-            raise _ToolError(get_verdict_message())
+            return _ok_content(await self._handle_get_verdict(arguments))
         raise _ToolError(f"Unknown tool: {name!r}")
 
     async def _handle_request_signoff(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        started = time.perf_counter()
+
+        # Log the invocation before validation so every attempt shows up
+        # in the audit stream, even ones that get rejected downstream.
+        deliverable_id = (
+            arguments.get("deliverable", {}).get("id")
+            if isinstance(arguments, dict) and isinstance(arguments.get("deliverable"), dict)
+            else None
+        )
+        raw_claims = arguments.get("claims") if isinstance(arguments, dict) else None
+        claim_count = len(raw_claims) if isinstance(raw_claims, list) else 0
+        _logger.info(
+            "request_signoff invoked: deliverable_id=%r claims=%d",
+            deliverable_id,
+            claim_count,
+        )
+
         if not isinstance(arguments, dict):
+            _logger.info(
+                "request_signoff validation failed: arguments must be a JSON object (got %s)",
+                type(arguments).__name__,
+            )
             raise _ToolError(
                 f"request_signoff expects a JSON object; got {type(arguments).__name__}"
             )
         raw_deliverable = arguments.get("deliverable")
         if raw_deliverable is None:
+            _logger.info("request_signoff validation failed: 'deliverable' is required")
             raise _ToolError("request_signoff: 'deliverable' is required (see protocol §7.3.1).")
         try:
             deliverable = Deliverable.model_validate(raw_deliverable)
             claims = [Claim.model_validate(c) for c in arguments.get("claims", [])]
         except ValidationError as exc:
-            # Surface the first validation error clearly for the client.
             msg = _format_validation_error(exc)
+            _logger.info("request_signoff validation failed: %s", msg)
             raise _ToolError(f"request_signoff: input validation failed: {msg}") from None
 
         config_override = arguments.get("config_override")
         retry_budget = arguments.get("retry_budget")
         if config_override is not None and not isinstance(config_override, dict):
+            _logger.info("request_signoff validation failed: config_override must be an object")
             raise _ToolError("request_signoff: 'config_override' must be an object if provided.")
         if retry_budget is not None and (not isinstance(retry_budget, int) or retry_budget < 0):
+            _logger.info(
+                "request_signoff validation failed: retry_budget must be a "
+                "non-negative integer (got %r)",
+                retry_budget,
+            )
             raise _ToolError("request_signoff: 'retry_budget' must be a non-negative integer.")
 
         try:
@@ -157,12 +186,25 @@ class SignoffMCPServer:
                 retry_budget=retry_budget,
             )
         except Exception as exc:
-            _logger.exception("request_signoff: harness.verify failed")
+            _logger.error(
+                "request_signoff: harness.verify raised %s",
+                type(exc).__name__,
+                exc_info=True,
+            )
             raise _ToolError(f"verification failed: {type(exc).__name__}: {exc}") from None
 
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        _logger.info(
+            "request_signoff completed: verdict_id=%s passed=%s duration_ms=%d",
+            verdict.id,
+            verdict.passed,
+            duration_ms,
+        )
         return json.loads(verdict.model_dump_json())  # type: ignore[no-any-return]
 
     async def _handle_list_verifiers(self) -> dict[str, Any]:
+        started = time.perf_counter()
+        _logger.info("list_verifiers invoked")
         entries: list[dict[str, Any]] = []
         cfg = self.harness.config
         for meta in self.harness.registry.list_all():
@@ -176,10 +218,24 @@ class SignoffMCPServer:
                     "enabled": _is_enabled(cfg, meta.fully_qualified_name),
                 }
             )
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        _logger.info(
+            "list_verifiers completed: verifier_count=%d duration_ms=%d",
+            len(entries),
+            duration_ms,
+        )
         return {
             "protocol_version": _PROTOCOL_VERSION,
             "verifiers": entries,
         }
+
+    async def _handle_get_verdict(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        verdict_id = arguments.get("verdict_id") if isinstance(arguments, dict) else None
+        _logger.info("get_verdict invoked: verdict_id=%r", verdict_id)
+        # Local servers don't persist verdicts. Always reject — but log
+        # so the audit stream still records the attempt.
+        _logger.info("get_verdict rejected: local server does not persist verdicts")
+        raise _ToolError(get_verdict_message())
 
     # ------------------------------------------------------------------
     # Transports
