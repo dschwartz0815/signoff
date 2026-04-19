@@ -17,8 +17,15 @@ from __future__ import annotations
 
 __version__ = "0.0.1"
 
+from signoff_judge.base import BaseJudge, RetryableProviderError
 from signoff_judge.config import JudgeClientConfig
 from signoff_judge.cost import RATES, ModelRates, estimate_cost
+from signoff_judge.errors import (
+    JudgeError,
+    JudgeInfrastructureError,
+    JudgeMalformedResponseError,
+    JudgeRefusalError,
+)
 from signoff_judge.prompts import (
     PromptNotFoundError,
     PromptRegistry,
@@ -27,11 +34,17 @@ from signoff_judge.prompts import (
 
 __all__ = [
     "RATES",
+    "BaseJudge",
     "JudgeClientConfig",
+    "JudgeError",
+    "JudgeInfrastructureError",
+    "JudgeMalformedResponseError",
+    "JudgeRefusalError",
     "ModelRates",
     "PromptNotFoundError",
     "PromptRegistry",
     "PromptTemplate",
+    "RetryableProviderError",
     "__version__",
     "estimate_cost",
 ]
