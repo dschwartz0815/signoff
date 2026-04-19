@@ -44,6 +44,28 @@ class Registry:
         self._by_fqn: dict[str, RegisteredVerifier] = {}
         self._lock = threading.Lock()
 
+    # ------------------------------------------------------------------ factory
+
+    @classmethod
+    def discovered(cls) -> Registry:
+        """Return a registry with every installed pack's verifiers
+        already loaded via :meth:`discover`.
+
+        Equivalent to::
+
+            r = Registry()
+            r.discover()
+            return r
+
+        Prefer this factory when you have no programmatic verifiers to
+        add. Use the two-step form when you need to register verifiers
+        before discovery, or re-scan after installing a new pack at
+        runtime.
+        """
+        r = cls()
+        r.discover()
+        return r
+
     # ------------------------------------------------------------------ public
 
     def discover(self) -> int:

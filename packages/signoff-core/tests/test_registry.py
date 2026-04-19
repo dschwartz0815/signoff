@@ -112,6 +112,15 @@ def test_duplicate_registration_warns_and_replaces(
     assert r.get("signoff-research.cite") is second
 
 
+def test_discovered_returns_populated_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Registry.discovered() is equivalent to Registry() + discover()."""
+    v = _make_verifier(pack="signoff-research", name="cite")
+    _patch_entry_points(monkeypatch, [_FakeEntryPoint(name="cite", value="m:v", _load_result=v)])
+    r = Registry.discovered()
+    assert len(r) == 1
+    assert "signoff-research.cite" in r
+
+
 def test_clear_removes_everything() -> None:
     r = Registry()
     r.register(_make_verifier(pack="signoff-research", name="cite"))
