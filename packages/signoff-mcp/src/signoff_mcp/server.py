@@ -26,7 +26,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.sse import SseServerTransport
 from mcp.server.stdio import stdio_server
 from pydantic import ValidationError
-from signoff import Claim, Deliverable, Harness, HarnessConfig
+from signoff import Claim, Deliverable, Harness, HarnessConfig, setup_logging
 
 from signoff_mcp import __version__ as _MCP_VERSION
 from signoff_mcp._tools import (
@@ -186,9 +186,9 @@ class SignoffMCPServer:
     # ------------------------------------------------------------------
 
     async def serve_stdio(self) -> None:
-        """Run the server over stdio. Configured logger on stderr — stdout
-        is reserved for MCP protocol messages."""
-        _configure_stderr_logging()
+        """Run the server over stdio. Routes ``signoff`` loggers to
+        stderr so stdout stays reserved for MCP protocol messages."""
+        setup_logging(stream=sys.stderr)
         app = self.build_app()
         init_options = app.create_initialization_options(NotificationOptions())
         async with stdio_server() as (read, write):
@@ -202,9 +202,14 @@ class SignoffMCPServer:
     ) -> None:
         """Run the server over HTTP+SSE on ``host:port``. Adds ``/health``
         and ``/version`` endpoints. Honors ``SIGNOFF_MCP_AUTH_TOKEN`` for
-        an optional Bearer-token auth check."""
+        an optional Bearer-token auth check.
+
+        Logs go to stderr — uvicorn's own access log is disabled;
+        ``signoff`` loggers fire through :func:`signoff.setup_logging`.
+        """
         import uvicorn
 
+        setup_logging(stream=sys.stderr)
         app = self.build_app()
         starlette_app = _build_http_app(self, app)
         config = uvicorn.Config(
@@ -261,19 +266,6 @@ def _format_validation_error(exc: ValidationError) -> str:
     loc = ".".join(str(p) for p in first.get("loc", ()))
     msg = first.get("msg", "")
     return f"{loc}: {msg}" if loc else msg
-
-
-def _configure_stderr_logging() -> None:
-    """Route logging to stderr. stdio transport requires stdout to carry
-    only protocol messages."""
-    root = logging.getLogger()
-    if any(isinstance(h, logging.StreamHandler) and h.stream is sys.stderr for h in root.handlers):
-        return
-    handler = logging.StreamHandler(stream=sys.stderr)
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-    root.addHandler(handler)
-    if root.level == logging.NOTSET:
-        root.setLevel(logging.INFO)
 
 
 # ---------------------------------------------------------------------------

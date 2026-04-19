@@ -19,6 +19,7 @@ from __future__ import annotations
 
 __version__ = "0.0.1"
 
+from signoff._logging import setup_logging
 from signoff.config import (
     PACK_DEFAULTS_ENTRY_POINT_GROUP,
     BudgetConfig,
@@ -119,6 +120,7 @@ __all__ = [
     "default_registry",
     "load_config",
     "make_context",
+    "setup_logging",
     "validate_config",
     "verifier",
 ]
