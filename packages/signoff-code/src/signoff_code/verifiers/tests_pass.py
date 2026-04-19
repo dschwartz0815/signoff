@@ -24,11 +24,16 @@ _logger = logging.getLogger("signoff_code.verifiers.tests_pass")
 # --- pytest output parsing -------------------------------------------------
 
 
-_PYTEST_SUMMARY_RE = re.compile(
-    r"^=+ (?:(?P<passed>\d+) passed)?.*?(?:(?P<failed>\d+) failed)?.*?"
-    r"(?:(?P<errors>\d+) error)?.*?(?:(?P<skipped>\d+) skipped)?",
-    re.MULTILINE,
-)
+#: Matches each count component (``42 passed``, ``3 failed``, ``1 error``,
+#: ``5 skipped``) in pytest's summary line. Applied separately per key
+#: rather than one mega-pattern so a missing component doesn't make the
+#: whole parse return zeros.
+_PYTEST_COUNT_PATTERNS = {
+    "passed": re.compile(r"(\d+)\s+passed\b"),
+    "failed": re.compile(r"(\d+)\s+failed\b"),
+    "errors": re.compile(r"(\d+)\s+error(?:s)?\b"),
+    "skipped": re.compile(r"(\d+)\s+skipped\b"),
+}
 
 _FIRST_FAILING_TEST_RE = re.compile(r"^FAILED (?P<nodeid>[^\s]+)", re.MULTILINE)
 
@@ -113,16 +118,15 @@ def _parse_summary(stdout: str) -> dict[str, int]:
     """Extract the ``passed / failed / errors / skipped`` counts.
 
     Pytest's human-readable summary line is a grab-bag; we grep for
-    the canonical parts and return zero for any piece that isn't
-    present. Best-effort; parser drift on a new pytest version is a
-    cosmetic issue, not a correctness one.
+    each canonical part independently and return zero for anything
+    we don't find. Best-effort; parser drift on a new pytest version
+    is a cosmetic issue, not a correctness one.
     """
     counts = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0}
-    for match in _PYTEST_SUMMARY_RE.finditer(stdout):
-        for key in counts:
-            value = match.group(key)
-            if value is not None:
-                counts[key] = int(value)
+    for key, pattern in _PYTEST_COUNT_PATTERNS.items():
+        match = pattern.search(stdout)
+        if match is not None:
+            counts[key] = int(match.group(1))
     return counts
 
 

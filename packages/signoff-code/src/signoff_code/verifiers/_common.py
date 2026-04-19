@@ -67,12 +67,19 @@ async def materialize_from_ctx(
     """Pull the code-change payload from ``ctx.deliverable`` and
     return a materialised workspace.
 
-    The caller owns the returned :class:`Workspace` and must call
-    ``cleanup()`` (or use it as an async context manager) before
-    returning its verifier result.
+    The tempdir is rooted under ``ctx.workspace`` (rather than
+    ``tempfile.gettempdir()``) so commands run via ``ctx.exec``
+    under :class:`DockerRuntime` can actually reach the tree — the
+    runtime bind-mounts ``ctx.workspace`` into the container, and
+    ``DockerExec`` rejects ``cwd`` paths that resolve outside it.
+
+    Callers can override with ``tmp_root=`` for tests that want a
+    specific location. The returned :class:`Workspace` must be
+    cleaned up (async context manager form handles this).
     """
     change = code_change_content(ctx.deliverable)
-    workspace = await Workspace.materialize(change, http=ctx.http, tmp_root=tmp_root)
+    effective_root = tmp_root if tmp_root is not None else ctx.workspace
+    workspace = await Workspace.materialize(change, http=ctx.http, tmp_root=effective_root)
     return change, workspace
 
 

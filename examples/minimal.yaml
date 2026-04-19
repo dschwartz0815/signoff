@@ -26,13 +26,16 @@ budget:
 runtime:
   default: local
   # Sandboxing for Phase 1 packs that execute untrusted code (e.g.
-  # signoff-code) belongs to DockerRuntime. Install
-  # signoff-runtime-docker and uncomment the per-verifier map once
-  # you have real code-executing verifiers:
+  # signoff-code) requires DockerRuntime. For a fully-wired
+  # code-verification config see examples/code-change.yaml; the
+  # one-line version is:
   #
   # per_verifier:
-  #   signoff-code.tests: docker
-  #   signoff-code.types: docker
+  #   signoff-code.tests_pass: docker
+  #   signoff-code.types_check: docker
+  #   signoff-code.lint_clean: docker
+  #   signoff-code.smoke_imports: docker
+  #   signoff-code.semantic_diff: docker
   #
   # See docs/runtimes.md § "DockerRuntime" for the security posture
   # and docs/deployment.md § "Running with DockerRuntime" for how to

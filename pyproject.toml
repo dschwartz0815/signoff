@@ -87,6 +87,10 @@ python_files = ["test_*.py"]
 # verifier) aren't mis-collected as test functions.
 python_functions = ["test_*"]
 python_classes = ["Test*"]
+# Don't recurse into fixture directories — signoff-code ships
+# `tests/fixtures/*/test_*.py` payloads that are intended to be run
+# *inside* the sandbox, not by the outer pytest.
+norecursedirs = [".git", "build", "dist", ".venv", "fixtures"]
 addopts = [
     "-ra",
     "--strict-markers",
