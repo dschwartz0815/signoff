@@ -11,6 +11,7 @@ members = [
     "packages/signoff-code",
     "packages/signoff-http",
     "packages/signoff-judge",
+    "packages/signoff-runtime-docker",
 ]
 
 [tool.uv.sources]
@@ -19,6 +20,7 @@ signoff-mcp = { workspace = true }
 signoff-code = { workspace = true }
 signoff-http = { workspace = true }
 signoff-judge = { workspace = true }
+signoff-runtime-docker = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -33,6 +35,7 @@ dev = [
     "signoff-code",
     "signoff-http",
     "signoff-judge",
+    "signoff-runtime-docker",
     "starlette>=0.37",
 ]
 
@@ -71,7 +74,7 @@ ignore_missing_imports = true
 disable_error_code = ["untyped-decorator"]
 
 [[tool.mypy.overrides]]
-module = ["uvicorn.*", "starlette.*", "httpx.*"]
+module = ["uvicorn.*", "starlette.*", "httpx.*", "docker.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
