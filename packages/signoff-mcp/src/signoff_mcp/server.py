@@ -204,20 +204,29 @@ class SignoffMCPServer:
         and ``/version`` endpoints. Honors ``SIGNOFF_MCP_AUTH_TOKEN`` for
         an optional Bearer-token auth check.
 
-        Logs go to stderr — uvicorn's own access log is disabled;
-        ``signoff`` loggers fire through :func:`signoff.setup_logging`.
+        Logging
+        -------
+        Uvicorn's default ``log_config`` runs a ``dictConfig`` with
+        ``disable_existing_loggers=True``, which silently disables every
+        ``signoff.*`` logger we configured through
+        :func:`signoff.setup_logging`. We pass ``log_config=None`` to
+        prevent that, and ``access_log=True`` so per-request lines are
+        restored — with Uvicorn's own loggers routed through the Signoff
+        handler so app and access logs share one format.
         """
         import uvicorn
 
         setup_logging(stream=sys.stderr)
+        _route_uvicorn_through_signoff_handler()
         app = self.build_app()
         starlette_app = _build_http_app(self, app)
         config = uvicorn.Config(
             starlette_app,
             host=host,
             port=port,
+            log_config=None,  # preserve setup_logging() / _route_uvicorn_…
             log_level="info",
-            access_log=False,
+            access_log=True,
         )
         await uvicorn.Server(config).serve()
 
@@ -256,6 +265,29 @@ def _is_enabled(cfg: HarnessConfig, fqn: str) -> bool:
             any_enabled = True
             break
     return (not any_mention) or any_enabled
+
+
+def _route_uvicorn_through_signoff_handler() -> None:
+    """Attach the ``signoff`` logger's handler to Uvicorn's loggers.
+
+    Uvicorn's ``uvicorn.error`` and ``uvicorn.access`` loggers start
+    out with no handlers. With ``log_config=None`` we opt out of
+    Uvicorn's dictConfig, so those loggers stay empty unless we attach
+    a handler explicitly. Routing them through the same handler
+    :func:`signoff.setup_logging` installed keeps app logs and access
+    logs in one format.
+    """
+    signoff_logger = logging.getLogger("signoff")
+    handlers = list(signoff_logger.handlers)
+    if not handlers:
+        return
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        logger = logging.getLogger(name)
+        logger.handlers = handlers
+        logger.setLevel(logging.INFO)
+        # Don't also propagate to root — that would duplicate output for
+        # callers with their own root handler.
+        logger.propagate = False
 
 
 def _format_validation_error(exc: ValidationError) -> str:
@@ -382,7 +414,15 @@ async def serve(
     host: str = "127.0.0.1",
     port: int = 8765,
 ) -> None:
-    """Start a Signoff MCP server. Used by ``python -m signoff_mcp``."""
+    """Start a Signoff MCP server. Used by ``python -m signoff_mcp``.
+
+    Logging is configured eagerly via :func:`signoff.setup_logging` so
+    the INFO lines emitted during :meth:`Harness.from_config_path`
+    (e.g. "Using FakeHttpClient") land in stderr instead of being
+    dropped. The per-transport methods call ``setup_logging`` again;
+    it's idempotent.
+    """
+    setup_logging(stream=sys.stderr)
     server = await SignoffMCPServer.from_config_path(config_path)
     if transport == "stdio":
         await server.serve_stdio()
