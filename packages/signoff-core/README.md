@@ -42,6 +42,32 @@ Implements protocol §4.3.
 | `HttpClient`, `JudgeClient` (Protocols) | Pluggable client contracts; real impls arrive in follow-ups |
 | `make_context(...)` | Convenience factory for tests and ad-hoc callers |
 
+### Verifier decorator + plugin registry (`signoff.verifier`, `signoff.registry`)
+
+Implements protocol §4.1 / §4.2. See [`docs/writing-a-verifier.md`](../../docs/writing-a-verifier.md).
+
+| Symbol | Purpose |
+|--------|---------|
+| `@verifier(...)` | Declares a verifier; attaches `VerifierMeta` to the function at import time |
+| `RegisteredVerifier` (Protocol) | Structural type for "callable with `.signoff_meta`" |
+| `Registry` | Indexed store of registered verifiers; supports `discover`, `register`, `get`, `list_all`, `for_claim_kind`, `whole_deliverable` |
+| `default_registry` | Module-level singleton convenience |
+| `ENTRY_POINT_GROUP` | `"signoff.verifiers"` — what packs publish into |
+
+### Configuration (`signoff.config`)
+
+Implements protocol §6. See [`docs/configuration.md`](../../docs/configuration.md).
+
+| Symbol | Purpose |
+|--------|---------|
+| `HarnessConfig` | Top-level YAML shape |
+| `DeliverableConfig`, `VerifierConfig`, `BudgetConfig`, `RuntimeConfig`, `RuntimePolicyConfig`, `JudgeConfig`, `RetryConfig` | Nested sections |
+| `load_config(path=..., pack_defaults=..., env_overrides=..., request_overrides=...)` | Full resolution-order loader |
+| `validate_config(config, registry)` | Cross-check against a populated `Registry` |
+| `deep_merge(base, override)` | Deep-merge primitive (dicts recurse, lists replace, `None` unsets) |
+| `ConfigurationError` | Raised on YAML / validation failures |
+| `PACK_DEFAULTS_ENTRY_POINT_GROUP` | `"signoff.pack_defaults"` — packs publish defaults here |
+
 ### Test helpers (`signoff.testing`)
 
 Opt-in — not re-exported from `signoff`.
@@ -62,9 +88,7 @@ The TypeScript SDK copies these schemas at build time and asserts agreement agai
 
 ## Coming in follow-up PRs
 
-- `@verifier` decorator and plugin registry (entry points).
-- `Harness` (orchestration, concurrency, budgeting).
-- YAML config loader.
+- `Harness` (orchestration, concurrency, budgeting, verdict construction).
 - Real `HttpClient` (httpx) and `JudgeClient` (Anthropic / OpenAI) implementations.
 - `DockerRuntime` (separate package, `signoff-runtime-docker`).
 

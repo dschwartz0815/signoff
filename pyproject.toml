@@ -23,6 +23,7 @@ dev = [
     "pytest-cov>=5.0",
     "mypy>=1.11",
     "ruff>=0.6",
+    "types-pyyaml>=6.0",
     "signoff-core",
     "signoff-mcp",
     "signoff-code",
