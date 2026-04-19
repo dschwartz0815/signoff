@@ -11,12 +11,17 @@
 //
 // Intentionally NOT mirrored here:
 //
-//   FetchResult — it describes the outcome of an in-process
-//   HttpClient.get/head call inside the verifier harness. It is not
-//   part of the request/response wire format that crosses the hosted
-//   API boundary, so the TS SDK has no reason to know about it.
-//   (Python home: signoff.context.FetchResult; production impl in
-//   signoff_http.HttpxClient.)
+//   FetchResult — describes the outcome of an in-process
+//   HttpClient.get/head call inside the verifier harness. Not part of
+//   the request/response wire format that crosses the hosted API
+//   boundary. (Python home: signoff.context.FetchResult; production
+//   impl in signoff_http.HttpxClient.)
+//
+//   JudgeResult — describes the outcome of an in-process
+//   JudgeClient.{check_entailment,check_policy_compliance,classify}
+//   call. Same reasoning: lives inside the harness, never shipped on
+//   the wire. (Python home: signoff.context.JudgeResult; production
+//   impl in signoff_judge.AnthropicJudge / signoff_judge.OpenAIJudge.)
 
 import { z } from 'zod';
 

@@ -368,10 +368,13 @@ async def test_from_config_path_with_no_overrides(
 
     assert verdict.passed is True
     messages = "\n".join(r.getMessage() for r in caplog.records)
-    # Default provider is httpx, not fake — verify the routing log fires.
+    # Default providers are httpx and anthropic — verify both routing
+    # logs fire (the actual judge call happens inside a verifier, which
+    # this trivial citation_smoke doesn't make).
     assert "HTTP provider=httpx" in messages
     assert "HttpxClient" in messages
-    assert "FakeJudge" in messages
+    assert "Judge provider=anthropic" in messages
+    assert "AnthropicJudge" in messages
 
 
 @pytest.mark.asyncio
@@ -552,3 +555,87 @@ async def test_from_config_path_httpx_fallback_when_signoff_http_missing(
     assert isinstance(h.http, _Fake)
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "signoff-http is not installed" in messages
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_judge_provider_fake_uses_fake_client(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit ``judge: { provider: fake }`` keeps the FakeJudge path."""
+    from signoff.registry import default_registry
+    from signoff.testing import FakeJudge as _FakeJudge
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "judge:\n"
+        "  provider: fake\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    with caplog.at_level("INFO", logger="signoff.harness"):
+        h = await Harness.from_config_path(cfg_path)
+    assert isinstance(h.judge, _FakeJudge)
+    messages = "\n".join(r.getMessage() for r in caplog.records)
+    assert "Judge provider=fake" in messages
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_judge_fallback_when_signoff_judge_missing(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """provider=anthropic falls back to FakeJudge + WARNING when the
+    signoff-judge package is not importable."""
+    from signoff.registry import default_registry
+    from signoff.testing import FakeJudge as _FakeJudge
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if name == "signoff_judge":
+            raise ImportError("signoff_judge not installed for this test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "judge:\n"
+        "  provider: anthropic\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    with caplog.at_level("WARNING", logger="signoff.harness"):
+        h = await Harness.from_config_path(cfg_path)
+    assert isinstance(h.judge, _FakeJudge)
+    messages = "\n".join(r.getMessage() for r in caplog.records)
+    assert "signoff-judge is not installed" in messages

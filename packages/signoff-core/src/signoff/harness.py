@@ -201,17 +201,14 @@ class Harness:
         if http is None:
             http = _resolve_http_client(cfg, fake_factory=FakeHttpClient)
         if judge is None:
-            _logger.info(
-                "Using FakeJudge — no real LLM judge configured. "
-                "See docs/configuration.md for production setup."
-            )
+            judge = _resolve_judge_client(cfg, fake_factory=FakeJudge)
 
         kwargs: dict[str, Any] = {
             "config": cfg,
             "registry": effective_registry,
             "runtimes": effective_runtimes,
             "http": http,
-            "judge": judge if judge is not None else FakeJudge(),
+            "judge": judge,
         }
         if clock is not None:
             kwargs["clock"] = clock
@@ -863,6 +860,44 @@ class Harness:
 
 def _fqn(p: _PlannedVerifierRun) -> str:
     return p.verifier.signoff_meta.fully_qualified_name
+
+
+def _resolve_judge_client(
+    config: HarnessConfig, *, fake_factory: Callable[[], JudgeClient]
+) -> JudgeClient:
+    """Select the judge backend per :attr:`HarnessConfig.judge`.
+
+    ``provider="fake"`` returns the fake with an INFO log.
+    ``provider="anthropic"`` / ``"openai"`` tries to construct the
+    corresponding :class:`signoff_judge` class; import failure logs a
+    WARNING and falls back to the fake so a missing install produces
+    a runnable harness + visible log instead of ImportError at startup.
+    Provider-native :attr:`~JudgeConfig.model` is forwarded so the
+    picked judge uses the operator's chosen model.
+    """
+    provider = config.judge.provider
+    if provider == "fake":
+        _logger.info("Judge provider=fake — using FakeJudge for this harness.")
+        return fake_factory()
+    try:
+        from signoff_judge import (
+            AnthropicJudge,
+            JudgeClientConfig,
+            OpenAIJudge,
+        )
+    except ImportError:
+        _logger.warning(
+            "Judge provider=%s but signoff-judge is not installed; "
+            "falling back to FakeJudge. `pip install signoff-judge` "
+            "to enable real LLM judgments.",
+            provider,
+        )
+        return fake_factory()
+    judge_cfg = JudgeClientConfig(provider=provider, model=config.judge.model)
+    _logger.info("Judge provider=%s — using %sJudge.", provider, provider.capitalize())
+    if provider == "anthropic":
+        return AnthropicJudge(judge_cfg)
+    return OpenAIJudge(judge_cfg)
 
 
 def _resolve_http_client(

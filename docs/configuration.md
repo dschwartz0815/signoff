@@ -48,8 +48,8 @@ runtime_policy:                     # Per-runtime policy blocks.
 http:                               # §4.3 + docs/http-client.md.
   provider: httpx                   # "httpx" (default) | "fake"
 
-judge:
-  provider: anthropic
+judge:                              # §4.3 + docs/judge-client.md.
+  provider: anthropic               # "anthropic" (default) | "openai" | "fake"
   model: claude-haiku-4-5
   max_tokens: 1024
 
@@ -129,7 +129,7 @@ Each Signoff package owns its own env-var prefix so vars that belong to one pack
 | `SIGNOFF_CORE_` | [`signoff-core`](../packages/signoff-core) | Harness configuration — overrides any field on `HarnessConfig`. Documented below. |
 | `SIGNOFF_MCP_` | [`signoff-mcp`](../packages/signoff-mcp) | MCP server settings: log level, Bearer auth token. Documented in [`docs/mcp-integration.md`](./mcp-integration.md). |
 | `SIGNOFF_HTTP_` | [`signoff-http`](../packages/signoff-http) | Real HTTP client — timeouts, connection pool, retries, redirects, robots.txt, response cache, size caps. See [`docs/http-client.md`](./http-client.md). |
-| `SIGNOFF_JUDGE_` | [`signoff-core`](../packages/signoff-core) *(reserved for PR 8)* | Real LLM judge client — provider, model, API key. |
+| `SIGNOFF_JUDGE_` | [`signoff-judge`](../packages/signoff-judge) | Real LLM judge client — provider, model, API key, timeouts, retries, prompt root. See [`docs/judge-client.md`](./judge-client.md) and [`docs/prompts.md`](./prompts.md). |
 
 `SIGNOFF_SAMPLING_SEED` is a separate escape hatch: it's a test/reproducibility knob, not package config, and is read directly by the harness.
 

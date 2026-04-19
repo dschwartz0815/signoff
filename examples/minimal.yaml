@@ -34,6 +34,10 @@ runtime:
 http:
   provider: fake
 
+# Judge provider. "fake" keeps the smoke stack hermetic; switch to
+# "anthropic" or "openai" once you have an API key and a verifier that
+# uses ctx.judge. Real credentials flow through SIGNOFF_JUDGE_* env
+# vars (see docs/judge-client.md), not this YAML.
 judge:
   provider: fake
   model: claude-haiku-4-5

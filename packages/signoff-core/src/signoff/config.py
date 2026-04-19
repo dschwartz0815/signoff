@@ -129,11 +129,28 @@ class RuntimePolicyConfig(BaseModel):
 
 
 class JudgeConfig(BaseModel):
-    """LLM judge configuration."""
+    """LLM judge configuration.
+
+    ``provider="anthropic"`` (the default) wires up the real
+    :class:`signoff_judge.AnthropicJudge` when ``signoff-judge`` is
+    installed. ``provider="openai"`` wires up
+    :class:`signoff_judge.OpenAIJudge`. ``provider="fake"`` keeps
+    :class:`signoff.testing.FakeJudge` unconditionally — right for
+    offline unit runs and deterministic regression suites.
+
+    When the chosen provider package is not installed, the harness
+    logs a WARNING and falls back to the fake so a mis-provisioned
+    deployment still runs (with a visible log) instead of failing at
+    import time.
+
+    Fine-grained knobs (API keys, timeouts, retries, prompt root)
+    live in ``signoff-judge``'s own ``SIGNOFF_JUDGE_*`` namespace per
+    ``docs/configuration.md``; we do not duplicate them here.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    provider: Literal["anthropic", "openai", "fake"] = "fake"
+    provider: Literal["anthropic", "openai", "fake"] = "anthropic"
     model: str = "claude-haiku-4-5"
     max_tokens: int = Field(default=1024, ge=1)
 
@@ -174,7 +191,7 @@ class HarnessConfig(BaseModel):
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     runtime_policy: RuntimePolicyConfig = Field(default_factory=RuntimePolicyConfig)
-    judge: JudgeConfig | None = None
+    judge: JudgeConfig = Field(default_factory=JudgeConfig)
     http: HttpConfig = Field(default_factory=HttpConfig)
     retries: RetryConfig = Field(default_factory=RetryConfig)
 
