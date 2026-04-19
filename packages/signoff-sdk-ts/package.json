@@ -17,6 +17,10 @@
   "files": ["dist", "README.md"],
   "sideEffects": false,
   "scripts": {
+    "sync-schemas": "node scripts/copy-schemas.mjs",
+    "prebuild": "pnpm run sync-schemas",
+    "pretest": "pnpm run sync-schemas",
+    "pretypecheck": "pnpm run sync-schemas",
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -27,6 +31,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "ajv": "^8.17.0",
     "tsup": "^8.3.0",
     "typescript": "5.4.5",
     "vitest": "^2.1.0"
