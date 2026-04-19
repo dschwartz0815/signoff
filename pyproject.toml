@@ -82,6 +82,11 @@ minversion = "8.0"
 asyncio_mode = "auto"
 testpaths = ["packages", "tests/parity"]
 python_files = ["test_*.py"]
+# Constrain to `test_*` so imported verifiers / helpers whose names
+# happen to start with `tests_` (e.g. signoff_code's `tests_pass`
+# verifier) aren't mis-collected as test functions.
+python_functions = ["test_*"]
+python_classes = ["Test*"]
 addopts = [
     "-ra",
     "--strict-markers",

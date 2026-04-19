@@ -13,7 +13,10 @@ dependencies = [
 ]
 
 [project.entry-points."signoff.verifiers"]
-# Verifiers are registered here in Phase 1.
+lint_clean = "signoff_code.verifiers.lint_clean:lint_clean"
+smoke_imports = "signoff_code.verifiers.smoke_imports:smoke_imports"
+tests_pass = "signoff_code.verifiers.tests_pass:tests_pass"
+types_check = "signoff_code.verifiers.types_check:types_check"
 
 [project.urls]
 Homepage = "https://github.com/signoff/signoff"
