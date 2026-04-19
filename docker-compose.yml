@@ -12,14 +12,19 @@ services:
     image: signoff-mcp:dev
     container_name: signoff-mcp
     init: true
-    stdin_open: true
-    tty: true
     environment:
-      SIGNOFF_LOG_LEVEL: info
+      # To require a Bearer token on all non-/health requests, set this
+      # to a strong secret and re-launch (see docs/mcp-integration.md).
+      # SIGNOFF_MCP_AUTH_TOKEN: change-me
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # The minimal YAML in this repo exercises the empty-registry path.
+      # Mount your own config over this file in production deployments.
+      - ./examples/minimal.yaml:/app/signoff.yaml:ro
     ports:
       - "8765:8765"
     healthcheck:
-      test: ["CMD", "python", "-m", "signoff_mcp", "--health"]
+      test: ["CMD", "signoff-mcp", "--health", "--transport", "http", "--port", "8765"]
       interval: 30s
       timeout: 3s
       retries: 3

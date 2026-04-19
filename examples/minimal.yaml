@@ -1,20 +1,21 @@
-# Minimal harness config referenced by docs/harness.md.
+# Minimal Signoff harness config. Referenced by docker-compose.yml and
+# the "Try it" quickstart in the repo README.
 #
-# This config enables a single research-pack verifier against a single
-# deliverable kind. Copy this file into your own repo and extend it as
-# you add packs and verifier-level knobs. See docs/configuration.md for
-# the full schema.
+# An empty config is the legitimate Phase 0 configuration: no verifier
+# packs installed, so every request_signoff call returns a trivially-
+# passing Verdict. This lets you exercise the MCP plumbing end-to-end
+# before any verifier packs land. See docs/configuration.md for the
+# full schema and docs/mcp-integration.md for MCP client wiring.
 
 protocol_version: "0.1"
 
-packs:
-  - signoff-research
+# No packs installed — verdicts will always pass, with results=[].
+packs: []
 
-deliverables:
-  research_report:
-    verifiers:
-      signoff-research.citation_existence:
-        enabled: true
+# Kinds you'll accept in request_signoff calls. Adding a block here with
+# verifiers: {} makes the harness aware of the kind without running
+# anything against it. Empty blocks are fine.
+deliverables: {}
 
 budget:
   max_cost_usd: 0.50

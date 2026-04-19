@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from signoff_mcp.__main__ import _build_parser, main
 
 

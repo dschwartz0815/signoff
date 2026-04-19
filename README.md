@@ -8,9 +8,23 @@ Signoff is a verification layer for AI agents. It sits between an agent and its 
 - [Protocol specification](./docs/protocol.md) — the normative contract.
 - [Contributor guide](./CLAUDE.md) — repo layout, conventions, phases.
 
-## Status
+## Quick start
 
-**Phase 0 — Foundation.** Scaffolding only. Public API is intentionally empty; data models, harness, runtime protocol, and verifier logic arrive in follow-up PRs per [`CLAUDE.md`](./CLAUDE.md) §14.
+Bring up the MCP server in a container, probe it, and make a real `request_signoff` call:
+
+```sh
+just dev                                                   # builds and runs signoff-mcp:dev on :8765
+
+curl -s http://localhost:8765/health
+# {"status":"ok","harness":"ready","verifier_count":0}
+
+curl -s http://localhost:8765/version
+# {"protocol_version":"0.1","harness_version":"0.0.1","mcp_server_version":"0.0.1"}
+```
+
+…then wire up any MCP client (Claude Desktop, Cursor, Cline, Zed, Continue, or a custom agent). Concrete config snippets in [`docs/mcp-integration.md`](./docs/mcp-integration.md).
+
+With the empty default config ([`examples/minimal.yaml`](./examples/minimal.yaml)) every request trivially passes — that's the "plumbing works" gate. Install a verifier pack (Phase 1 ships `signoff-code`) and the same agent flow starts doing real verification.
 
 ## Packages
 
@@ -22,6 +36,10 @@ Signoff is a verification layer for AI agents. It sits between an agent and its 
 | [`packages/signoff-sdk-ts`](./packages/signoff-sdk-ts) | TypeScript | Client SDK for the hosted API. |
 | [`cloud/`](./cloud) | mixed | Hosted service (Phase 2+; see [§6](./CLAUDE.md#6-cloud-directory-and-split-policy)). |
 
+## Status
+
+**Phase 0 — Foundation.** Data models, harness, runtime protocol, config loader, registry, and MCP server are all live. Verifier packs + real HTTP / LLM-judge clients land in PRs 7+ and Phase 1. See [`CLAUDE.md`](./CLAUDE.md) §14 for the phase plan.
+
 ## Development
 
 Prerequisites: one of (a) `uv` + `pnpm` + Docker, or (b) Docker + `just` (all commands route through containers).
@@ -32,7 +50,7 @@ just test          # Run all test suites.
 just lint          # Lint Python (ruff) and TS (biome).
 just typecheck     # mypy --strict + tsc --noEmit.
 just build-images  # Build every Dockerfile in the OSS stack.
-just dev           # docker compose up — local OSS stack.
+just dev           # docker compose up — local MCP server on :8765.
 just ci            # Full CI simulation.
 ```
 
