@@ -639,3 +639,108 @@ async def test_from_config_path_judge_fallback_when_signoff_judge_missing(
     assert isinstance(h.judge, _FakeJudge)
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "signoff-judge is not installed" in messages
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_skips_docker_runtime_when_not_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default config uses runtime=local; no DockerRuntime should be
+    built even if signoff-runtime-docker is importable."""
+    from signoff.registry import default_registry
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    h = await Harness.from_config_path(cfg_path)
+    assert set(h.runtimes.keys()) == {"local"}
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_builds_docker_runtime_when_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``runtime: default: docker`` triggers DockerRuntime construction
+    when the package is installed."""
+    from signoff.registry import default_registry
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "runtime:\n"
+        "  default: docker\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    h = await Harness.from_config_path(cfg_path)
+    assert set(h.runtimes.keys()) == {"local", "docker"}
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_docker_fallback_when_package_missing(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With runtime=docker but no signoff_runtime_docker installed,
+    log a WARNING and fall back to LocalRuntime only."""
+    from signoff.registry import default_registry
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if name == "signoff_runtime_docker":
+            raise ImportError("pretend not installed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "runtime:\n"
+        "  default: docker\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    with caplog.at_level("WARNING", logger="signoff.harness"):
+        h = await Harness.from_config_path(cfg_path)
+    assert set(h.runtimes.keys()) == {"local"}
+    messages = "\n".join(r.getMessage() for r in caplog.records)
+    assert "signoff-runtime-docker is not installed" in messages

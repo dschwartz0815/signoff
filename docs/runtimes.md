@@ -87,11 +87,64 @@ A verifier can declare `runtime_required="docker"` on its `@verifier` decoration
 
 ---
 
+## `DockerRuntime` — sandbox for untrusted execution
+
+Ships in [`signoff-runtime-docker`](../packages/signoff-runtime-docker). Spawns an ephemeral container per verifier invocation, bind-mounts the workspace read-only, and enforces CPU / memory / PID / network limits via the Docker daemon. The verifier's Python body still runs in the harness process — **what's sandboxed is the subprocess invocations the verifier makes via `ctx.exec`**. That's the attack surface when running tests or linters on AI-generated code.
+
+### Safe-by-default posture
+
+On every container `DockerRuntime` creates:
+
+- `cap_drop=[ALL]`, `cap_add=[]` — no Linux capabilities.
+- `security_opt=["no-new-privileges"]` — setuid binaries can't escalate.
+- `read_only=True` — rootfs is read-only; writable tmpfs mounted at `/tmp`.
+- `user=10001:10001` — runs as the non-root `signoff` user.
+- `network_mode="none"` by default — no outbound network. `RuntimePolicy.network="allowlist"` is a Phase-1 placeholder that currently downgrades to `"bridge"` with a one-shot WARNING (the DNS-filter work is tracked separately).
+- `pids_limit=256`, `mem_limit`, `nano_cpus` — runaway processes are capped.
+- Workspace bind-mounted at `/workspace` in read-only mode (`workspace_mount_mode`).
+- Labels `signoff.harness=true`, `signoff.verifier=<fqn>`, `signoff.claim_id=<id>`, `signoff.run_id=<uuid>` so operators can track containers back to verdicts.
+
+### Image trust
+
+Images are verified with `cosign verify` before first use. The harness requires a certificate identity regex and OIDC issuer in config:
+
+```yaml
+# SIGNOFF_DOCKER_VERIFY_SIGNATURES=true (the default)
+# SIGNOFF_DOCKER_SIGNATURE_CERT_IDENTITY_REGEXP=^https://github\\.com/signoff/
+# SIGNOFF_DOCKER_SIGNATURE_CERT_OIDC_ISSUER=https://token.actions.githubusercontent.com
+```
+
+Missing `cosign` on `PATH` while `verify_signatures=True` fails fast at `prepare()` time with a clear error (`ImageVerificationNotConfiguredError`) — the harness never runs with unverified images. Setting `verify_signatures=False` is supported for locally-built images only and emits a prominent WARNING at startup.
+
+### Routing through `ctx.exec`
+
+Inside `execute()` the runtime hands the verifier a `DockerVerifierContext`. Every attribute (`deliverable`, `http`, `judge`, `workspace`, `policy`, `logger`) forwards to the real `VerifierContext` unchanged — only `ctx.exec` is rewritten to route through `docker exec` into the ephemeral container:
+
+- `cwd` is translated from the host path into a `/workspace`-rooted container path. `cwd` outside the workspace raises `ExecCwdOutsideWorkspaceError`.
+- `timeout` kills the exec'd process (not the container) via `docker exec kill -9`. The container itself stays alive for subsequent `ctx.exec` calls from the same verifier.
+- stdout / stderr are streamed and truncated at per-stream byte caps (`SIGNOFF_DOCKER_EXEC_STDOUT_MAX_BYTES`, default 10 MiB). Truncation is marked in the returned `ExecResult`.
+
+Network and LLM-judge calls from a verifier still go through the host — those are trusted library calls, not subprocess invocations of untrusted content. That's deliberate: the sandbox covers the attack surface without imposing a DNS-level filter on everything the verifier does.
+
+### Selecting DockerRuntime
+
+`Harness.from_config_path` auto-includes `DockerRuntime` alongside `LocalRuntime` when:
+
+1. The config references `docker` (either `runtime.default: docker` or any per-verifier override), and
+2. `signoff-runtime-docker` is importable.
+
+When condition 1 is met but 2 isn't, the harness logs a WARNING and falls back to `LocalRuntime` — insecure for untrusted deliverables, but the harness still runs so operators notice the warning rather than hitting ImportError at startup.
+
+### Running inside a container
+
+If the harness itself runs in a container (the published MCP image does), `DockerRuntime` needs access to the host's Docker daemon to spawn sibling containers. See [`docs/deployment.md`](./deployment.md) § "Running with DockerRuntime" for the socket-mount pattern and its security tradeoffs.
+
+---
+
 ## Future runtimes
 
 The following live in separate packages (not `signoff-core`) because they introduce heavy dependencies or platform assumptions:
 
-- **`signoff-runtime-docker`** (Phase 1) — `DockerRuntime` spawns an ephemeral container per execution, bind-mounts the workspace read-only, and enforces CPU / memory / network limits via the Docker daemon. Images are signed with `cosign`; `trivy` scans block publication on CRITICAL CVEs. See [`CLAUDE.md`](../CLAUDE.md) §8.5 and §9.1 for the image conventions.
 - **Firecracker** (later) — microVM isolation for multi-tenant hosted workloads.
 - **Wasm** (later) — for verifiers that can be compiled to WASI; near-zero startup overhead.
 - **Kubernetes Jobs** (later) — for distributed execution across a cluster.

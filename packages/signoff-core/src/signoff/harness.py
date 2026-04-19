@@ -197,7 +197,14 @@ class Harness:
         cfg = load_config(path=path)
         validate_config(cfg, effective_registry)
 
-        effective_runtimes: list[Runtime] = runtimes if runtimes is not None else [LocalRuntime()]
+        effective_runtimes: list[Runtime]
+        if runtimes is not None:
+            effective_runtimes = runtimes
+        else:
+            effective_runtimes = [LocalRuntime()]
+            docker_runtime = _try_build_docker_runtime(cfg)
+            if docker_runtime is not None:
+                effective_runtimes.append(docker_runtime)
         if http is None:
             http = _resolve_http_client(cfg, fake_factory=FakeHttpClient)
         if judge is None:
@@ -860,6 +867,41 @@ class Harness:
 
 def _fqn(p: _PlannedVerifierRun) -> str:
     return p.verifier.signoff_meta.fully_qualified_name
+
+
+def _try_build_docker_runtime(config: HarnessConfig) -> Runtime | None:
+    """Construct a :class:`~signoff_runtime_docker.DockerRuntime` when
+    the package is installed, or return ``None``.
+
+    Only builds the runtime when some verifier actually asks for it —
+    either ``runtime.default == "docker"`` or any per-verifier override
+    maps to ``"docker"``. This keeps the default install footprint tiny
+    for users who only want ``LocalRuntime``.
+
+    When the config names ``docker`` but ``signoff-runtime-docker`` is
+    missing, we log a prominent WARNING. Per CLAUDE.md §8.3 the harness
+    still runs (falling back to :class:`LocalRuntime`), which is
+    **insecure** for untrusted deliverables — operators are expected to
+    notice the warning and either install the package or disable the
+    docker-required verifiers.
+    """
+    uses_docker = config.runtime.default == "docker" or any(
+        v == "docker" for v in config.runtime.per_verifier.values()
+    )
+    if not uses_docker:
+        return None
+    try:
+        from signoff_runtime_docker import DockerRuntime
+    except ImportError:
+        _logger.warning(
+            "runtime=docker requested in config but signoff-runtime-docker "
+            "is not installed. Falling back to LocalRuntime for affected "
+            "verifiers — unsafe for untrusted deliverables. "
+            "`pip install signoff-runtime-docker` to enable sandboxing."
+        )
+        return None
+    _logger.info("Runtime docker=on — constructing DockerRuntime from config.")
+    return DockerRuntime()
 
 
 def _resolve_judge_client(

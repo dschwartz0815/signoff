@@ -34,13 +34,14 @@ With the empty default config ([`examples/minimal.yaml`](./examples/minimal.yaml
 | [`packages/signoff-mcp`](./packages/signoff-mcp) | Python | MCP server adapter. |
 | [`packages/signoff-http`](./packages/signoff-http) | Python | Real `httpx`-backed HTTP client ([docs](./docs/http-client.md)). |
 | [`packages/signoff-judge`](./packages/signoff-judge) | Python | Real LLM judge — `AnthropicJudge`, `OpenAIJudge` ([docs](./docs/judge-client.md)). |
+| [`packages/signoff-runtime-docker`](./packages/signoff-runtime-docker) | Python | Docker sandbox runtime for untrusted execution ([docs](./docs/runtimes.md)). |
 | [`packages/signoff-code`](./packages/signoff-code) | Python | First verifier pack (coding wedge, Phase 1). |
 | [`packages/signoff-sdk-ts`](./packages/signoff-sdk-ts) | TypeScript | Client SDK for the hosted API. |
 | [`cloud/`](./cloud) | mixed | Hosted service (Phase 2+; see [§6](./CLAUDE.md#6-cloud-directory-and-split-policy)). |
 
 ## Status
 
-**Phase 0 — Foundation.** Data models, harness, runtime protocol, config loader, registry, MCP server, real HTTP client (`signoff-http`), and real LLM judge clients (`signoff-judge` — Anthropic and OpenAI) are all live. Verifier packs land in Phase 1. See [`CLAUDE.md`](./CLAUDE.md) §14 for the phase plan.
+**Phase 0 complete; Phase 1 in flight.** Data models, harness, runtime protocol, config loader, registry, MCP server, real HTTP client (`signoff-http`), real LLM judge clients (`signoff-judge` — Anthropic and OpenAI), and the `DockerRuntime` sandbox for untrusted execution (`signoff-runtime-docker`) are all live. Next up: `signoff-code`, the first verifier pack. See [`CLAUDE.md`](./CLAUDE.md) §14 for the phase plan.
 
 ## Development
 

@@ -19,18 +19,25 @@ RUN pip install --no-cache-dir uv==0.11.*
 COPY pyproject.toml uv.lock* ./
 COPY packages/signoff-core ./packages/signoff-core
 COPY packages/signoff-mcp ./packages/signoff-mcp
-# signoff-http + signoff-judge bundled so Harness.from_config_path
-# can route to the real HttpxClient / AnthropicJudge / OpenAIJudge
-# without an extra install step at deployment time.
+# signoff-http + signoff-judge + signoff-runtime-docker bundled so
+# Harness.from_config_path can route to the real HttpxClient /
+# AnthropicJudge / OpenAIJudge / DockerRuntime without an extra
+# install step at deployment time. The runtime-docker package needs
+# the Docker socket to spawn sibling containers at runtime — see
+# docs/deployment.md "Running with DockerRuntime" for the security
+# tradeoffs.
 COPY packages/signoff-http ./packages/signoff-http
 COPY packages/signoff-judge ./packages/signoff-judge
+COPY packages/signoff-runtime-docker ./packages/signoff-runtime-docker
 
 # --no-editable installs workspace members as real packages. Without it
 # uv writes .pth files that point to /app/..., which survives the copy.
 RUN uv sync --frozen --no-dev --no-editable \
       --package signoff-mcp --package signoff-http --package signoff-judge \
+      --package signoff-runtime-docker \
  || uv sync --no-dev --no-editable \
-      --package signoff-mcp --package signoff-http --package signoff-judge
+      --package signoff-mcp --package signoff-http --package signoff-judge \
+      --package signoff-runtime-docker
 
 # ---- runtime ----
 FROM python:3.12-slim-bookworm AS runtime
