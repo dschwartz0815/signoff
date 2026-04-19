@@ -65,10 +65,36 @@ The full Pydantic model definitions live in [`signoff.config`](../packages/signo
 | # | Layer | Source |
 |---|-------|--------|
 | 1 | Built-in defaults | Pydantic model defaults in `signoff.config` |
-| 2 | Pack-declared defaults | Entry-point group `signoff.pack_defaults` (each pack contributes a `() -> dict` callable or a module-level dict) |
+| 2 | Pack-declared defaults | Entry-point group `signoff.pack_defaults` — normative per protocol §6.2. Each pack's entry point target resolves to either a `() -> Mapping` callable or a module-level mapping. |
 | 3 | User-supplied YAML | The `path=` argument to `load_config()` |
 | 4 | Environment variables | `SIGNOFF_*` — see below |
 | 5 | Per-request overrides | The `request_overrides=` argument, deep-merged on top |
+
+### A pack publishing defaults
+
+In a pack's `pyproject.toml`:
+
+```toml
+[project.entry-points."signoff.pack_defaults"]
+signoff-research = "signoff_research.defaults:DEFAULTS"
+```
+
+…and in `signoff_research/defaults.py`:
+
+```python
+DEFAULTS = {
+    "deliverables": {
+        "research_report": {
+            "verifiers": {
+                "signoff-research.citation_existence": {"enabled": True},
+                "signoff-research.citation_entailment": {"enabled": True},
+            },
+        },
+    },
+}
+```
+
+`load_config()` picks this up automatically (unless called with `pack_defaults=False`). Users override any of it in their own YAML.
 
 ### Worked example
 

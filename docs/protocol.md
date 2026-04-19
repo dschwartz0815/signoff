@@ -381,7 +381,7 @@ retries:
 Effective config MUST be computed by deep-merging in this order (later values win):
 
 1. Built-in defaults.
-2. Pack-declared defaults (each pack MAY ship a `default_config.yaml`).
+2. Pack-declared defaults. Packs MAY register a default config via the `signoff.pack_defaults` entry point group. Each entry point's target MUST resolve to either (a) a callable `() -> Mapping[str, Any]` returning the pack's defaults or (b) a module-level `Mapping[str, Any]`. The harness MUST deep-merge these mappings in entry-point iteration order before layer 3.
 3. User-supplied config file.
 4. Environment variable overrides (prefix `SIGNOFF_`).
 5. Per-request overrides passed to the harness.
@@ -653,7 +653,7 @@ The following names are reserved by this protocol and MUST NOT be used by pack a
 - Severity values: `blocker`, `warning`, `info`.
 - Cost tiers: `cheap`, `medium`, `expensive`.
 - Synthetic claim IDs: `__deliverable__`.
-- Entry point groups: `signoff.verifiers`, `signoff.packs`, `signoff.adapters`.
+- Entry point groups: `signoff.verifiers`, `signoff.pack_defaults`, `signoff.packs`, `signoff.adapters`.
 - Environment variable prefix: `SIGNOFF_`.
 
 Pack authors MUST use their pack's namespace (e.g., `signoff-legal.clause_reference`) for additions.
