@@ -1,0 +1,34 @@
+# Minimal harness config referenced by docs/harness.md.
+#
+# This config enables a single research-pack verifier against a single
+# deliverable kind. Copy this file into your own repo and extend it as
+# you add packs and verifier-level knobs. See docs/configuration.md for
+# the full schema.
+
+protocol_version: "0.1"
+
+packs:
+  - signoff-research
+
+deliverables:
+  research_report:
+    verifiers:
+      signoff-research.citation_existence:
+        enabled: true
+
+budget:
+  max_cost_usd: 0.50
+  max_duration_seconds: 120
+  global_concurrency: 16
+  early_termination: false
+
+runtime:
+  default: local
+
+judge:
+  provider: fake
+  model: claude-haiku-4-5
+  max_tokens: 1024
+
+retries:
+  default_budget: 3

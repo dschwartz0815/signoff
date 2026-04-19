@@ -751,9 +751,7 @@ async def test_severity_override_warning_to_blocker_synthesises_suggestion(
 
 
 @pytest.mark.asyncio
-async def test_config_override_applied(
-    deliverable: Deliverable, claims: list[Claim]
-) -> None:
+async def test_config_override_applied(deliverable: Deliverable, claims: list[Claim]) -> None:
     r = Registry()
     r.register(_make_passing_verifier("signoff-research", "cite"))
     h = _build_harness(registry=r)
@@ -763,9 +761,7 @@ async def test_config_override_applied(
         claims,
         config_override={
             "deliverables": {
-                "research_report": {
-                    "verifiers": {"signoff-research.cite": {"enabled": False}}
-                }
+                "research_report": {"verifiers": {"signoff-research.cite": {"enabled": False}}}
             }
         },
     )
@@ -792,11 +788,7 @@ async def test_prepare_and_teardown_lifecycle(
 @pytest.mark.asyncio
 async def test_from_config_path_builds_a_harness(tmp_path: Any) -> None:
     yaml_path = tmp_path / "harness.yaml"
-    yaml_path.write_text(
-        'protocol_version: "0.1"\n'
-        "packs: []\n"
-        "deliverables: {}\n"
-    )
+    yaml_path.write_text('protocol_version: "0.1"\npacks: []\ndeliverables: {}\n')
     h = await Harness.from_config_path(yaml_path)
     assert h.registry is not None
     assert "local" in h.runtimes
@@ -857,8 +849,11 @@ async def test_malformed_result_downgraded_to_synthetic_info(
         },
     )
     h = Harness(
-        config=cfg, registry=r, runtimes={"local": LocalRuntime()},
-        http=FakeHttpClient(), judge=FakeJudge(),
+        config=cfg,
+        registry=r,
+        runtimes={"local": LocalRuntime()},
+        http=FakeHttpClient(),
+        judge=FakeJudge(),
     )
     # Should not raise — the harness absorbs the malformed result.
     verdict = await h.verify(deliverable, claims[:1])

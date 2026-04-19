@@ -54,6 +54,16 @@ Implements protocol §4.1 / §4.2. See [`docs/writing-a-verifier.md`](../../docs
 | `default_registry` | Module-level singleton convenience |
 | `ENTRY_POINT_GROUP` | `"signoff.verifiers"` — what packs publish into |
 
+### Harness (`signoff.harness`)
+
+Implements protocol §5. See [`docs/harness.md`](../../docs/harness.md) for the full architecture + sequence diagram.
+
+| Symbol | Purpose |
+|--------|---------|
+| `Harness` | Orchestrates a full `verify(deliverable, claims) → Verdict` cycle: resolves applicable verifiers, schedules them under concurrency + budget constraints, collects results, builds the Verdict (and FeedbackPacket when blockers land), and honours cooperative cancellation. |
+| `Harness.from_config_path(...)` | Convenience async factory: loads YAML, uses `default_registry` + `LocalRuntime`, substitutes `FakeHttpClient`/`FakeJudge` when not supplied. |
+| `async with Harness(...) as h` | Calls `prepare()` / `teardown()` on every runtime. |
+
 ### Configuration (`signoff.config`)
 
 Implements protocol §6. See [`docs/configuration.md`](../../docs/configuration.md).
@@ -88,8 +98,9 @@ The TypeScript SDK copies these schemas at build time and asserts agreement agai
 
 ## Coming in follow-up PRs
 
-- `Harness` (orchestration, concurrency, budgeting, verdict construction).
+- MCP server wiring (`signoff-mcp`) — exposes `verify()` as the `request_signoff` tool.
 - Real `HttpClient` (httpx) and `JudgeClient` (Anthropic / OpenAI) implementations.
 - `DockerRuntime` (separate package, `signoff-runtime-docker`).
+- Per-verifier RuntimePolicy overrides wired through the config loader.
 
 See [`CLAUDE.md`](../../CLAUDE.md) §14 for the phase plan.
