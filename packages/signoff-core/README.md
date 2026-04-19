@@ -29,7 +29,7 @@ Per [`CLAUDE.md`](../../CLAUDE.md) §8 — see [`docs/runtimes.md`](../../docs/r
 | `RuntimePolicy` | Per-execution ceiling: timeout, CPU/memory caps, network posture |
 | `VerifierMeta` | §4.1 registration metadata the harness passes to the runtime |
 | `LocalRuntime` | In-process default; no isolation; enforces timeout + §4.4 error handling |
-| `RuntimeError` + `RuntimeTimeoutError`, `RuntimeResourceLimitError`, `RuntimePolicyViolationError`, `RuntimeInfrastructureError` | Runtime-internal error hierarchy |
+| `SignoffRuntimeError` + `RuntimeTimeoutError`, `RuntimeResourceLimitError`, `RuntimePolicyViolationError`, `RuntimeInfrastructureError` | Runtime-internal error hierarchy |
 
 ### Verifier context (`signoff.context`)
 

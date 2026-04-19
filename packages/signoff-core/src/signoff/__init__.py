@@ -45,7 +45,7 @@ from signoff.models import (
 from signoff.runtime import (
     LocalRuntime,
     Runtime,
-    RuntimeError,
+    SignoffRuntimeError,
     RuntimePolicy,
     VerifierMeta,
 )
@@ -71,7 +71,7 @@ __all__ = [
     "LocalRuntime",
     "ProtocolVersion",
     "Runtime",
-    "RuntimeError",
+    "SignoffRuntimeError",
     "RuntimePolicy",
     "Severity",
     "Verdict",

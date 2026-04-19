@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from signoff.runtime.base import (
     Runtime,
-    RuntimeError,
+    SignoffRuntimeError,
     RuntimeInfrastructureError,
     RuntimePolicy,
     RuntimePolicyViolationError,
@@ -23,7 +23,7 @@ from signoff.runtime.local import LocalRuntime
 __all__ = [
     "LocalRuntime",
     "Runtime",
-    "RuntimeError",
+    "SignoffRuntimeError",
     "RuntimeInfrastructureError",
     "RuntimePolicy",
     "RuntimePolicyViolationError",

@@ -28,7 +28,7 @@ Every conforming implementation MUST:
 - Re-raise `asyncio.CancelledError` unchanged so the harness can honour protocol §5.6 cooperative cancellation.
 - Be idempotent in `prepare` and `teardown`.
 
-Runtime-internal failures use the `RuntimeError` hierarchy defined in [`signoff.runtime.base`](../packages/signoff-core/src/signoff/runtime/base.py): `RuntimeTimeoutError`, `RuntimeResourceLimitError`, `RuntimePolicyViolationError`, `RuntimeInfrastructureError`. These are implementation aids — callers of `Runtime.execute()` never see them.
+Runtime-internal failures use the `SignoffRuntimeError` hierarchy defined in [`signoff.runtime.base`](../packages/signoff-core/src/signoff/runtime/base.py): `RuntimeTimeoutError`, `RuntimeResourceLimitError`, `RuntimePolicyViolationError`, `RuntimeInfrastructureError`. These are implementation aids — callers of `Runtime.execute()` never see them.
 
 ---
 
@@ -108,7 +108,7 @@ The TypeScript SDK (`@signoff/sdk`) is a client of the hosted Signoff API, not a
 
 ## See also
 
-- [`signoff.runtime.base`](../packages/signoff-core/src/signoff/runtime/base.py) — `Runtime` protocol, `RuntimePolicy`, `VerifierMeta`, `RuntimeError` hierarchy.
+- [`signoff.runtime.base`](../packages/signoff-core/src/signoff/runtime/base.py) — `Runtime` protocol, `RuntimePolicy`, `VerifierMeta`, `SignoffRuntimeError` hierarchy.
 - [`signoff.runtime.local`](../packages/signoff-core/src/signoff/runtime/local.py) — `LocalRuntime`.
 - [`signoff.context`](../packages/signoff-core/src/signoff/context.py) — `VerifierContext` and the `HttpClient` / `JudgeClient` protocols.
 - [`signoff.testing`](../packages/signoff-core/src/signoff/testing.py) — `FakeHttpClient` and `FakeJudge` for unit tests.

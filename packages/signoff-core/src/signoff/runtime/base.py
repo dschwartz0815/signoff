@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Runtime",
-    "RuntimeError",
     "RuntimeInfrastructureError",
     "RuntimePolicy",
     "RuntimePolicyViolationError",
     "RuntimeResourceLimitError",
     "RuntimeTimeoutError",
+    "SignoffRuntimeError",
     "VerifierMeta",
 ]
 
@@ -159,31 +159,29 @@ class Runtime(Protocol):
 # ---------------------------------------------------------------------------
 
 
-class RuntimeError(Exception):
+class SignoffRuntimeError(Exception):
     """Base for runtime-internal failures.
 
-    Distinct from a verifier returning ``passed=false``: a ``RuntimeError``
-    (in this module's sense) is caught by :meth:`Runtime.execute` and
+    Distinct from a verifier returning ``passed=false``: a
+    ``SignoffRuntimeError`` is caught by :meth:`Runtime.execute` and
     translated into a synthetic :class:`~signoff.models.VerifierResult`
     per protocol §4.4. It never escapes the runtime to the harness.
 
-    Shadows the Python builtin of the same name inside this module; that
-    is intentional per CLAUDE.md §8 and the naming used by CLAUDE.md's
-    Runtime discussion.
+    Named to avoid shadowing the Python builtin :class:`RuntimeError`.
     """
 
 
-class RuntimeTimeoutError(RuntimeError):
+class RuntimeTimeoutError(SignoffRuntimeError):
     """Raised internally when an execution exceeds ``policy.timeout_seconds``."""
 
 
-class RuntimeResourceLimitError(RuntimeError):
+class RuntimeResourceLimitError(SignoffRuntimeError):
     """Raised internally when a sandboxed runtime tripped a CPU/memory cap."""
 
 
-class RuntimePolicyViolationError(RuntimeError):
+class RuntimePolicyViolationError(SignoffRuntimeError):
     """Raised internally when a verifier violated network or fs policy."""
 
 
-class RuntimeInfrastructureError(RuntimeError):
+class RuntimeInfrastructureError(SignoffRuntimeError):
     """Raised internally for transient infra failures (DNS, image pull, etc.)."""
