@@ -59,6 +59,13 @@ exclude = ['packages/[^/]+/tests/']
 [[tool.mypy.overrides]]
 module = ["mcp.*"]
 ignore_missing_imports = true
+# The MCP Server decorators aren't typed; turn off the noisy
+# untyped-decorator warnings at the boundary.
+disable_error_code = ["untyped-decorator"]
+
+[[tool.mypy.overrides]]
+module = ["uvicorn.*", "starlette.*", "httpx.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

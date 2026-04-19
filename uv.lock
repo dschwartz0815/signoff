@@ -1059,14 +1059,20 @@ name = "signoff-mcp"
 version = "0.0.1"
 source = { editable = "packages/signoff-mcp" }
 dependencies = [
+    { name = "httpx" },
     { name = "mcp" },
     { name = "signoff-core" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
     { name = "mcp", specifier = ">=1.0" },
     { name = "signoff-core", editable = "packages/signoff-core" },
+    { name = "starlette", specifier = ">=0.37" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 
 [[package]]
