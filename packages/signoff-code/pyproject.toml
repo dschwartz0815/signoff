@@ -8,6 +8,8 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "Signoff Authors" }]
 dependencies = [
     "signoff-core",
+    "typing-extensions>=4.12",
+    "pyyaml>=6.0",
 ]
 
 [project.entry-points."signoff.verifiers"]

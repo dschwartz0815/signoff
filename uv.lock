@@ -1382,11 +1382,17 @@ name = "signoff-code"
 version = "0.0.1"
 source = { editable = "packages/signoff-code" }
 dependencies = [
+    { name = "pyyaml" },
     { name = "signoff-core" },
+    { name = "typing-extensions" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "signoff-core", editable = "packages/signoff-core" }]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "signoff-core", editable = "packages/signoff-core" },
+    { name = "typing-extensions", specifier = ">=4.12" },
+]
 
 [[package]]
 name = "signoff-core"
