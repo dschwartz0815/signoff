@@ -14,6 +14,7 @@ dependencies = [
 
 [project.entry-points."signoff.verifiers"]
 lint_clean = "signoff_code.verifiers.lint_clean:lint_clean"
+semantic_diff = "signoff_code.verifiers.semantic_diff:semantic_diff"
 smoke_imports = "signoff_code.verifiers.smoke_imports:smoke_imports"
 tests_pass = "signoff_code.verifiers.tests_pass:tests_pass"
 types_check = "signoff_code.verifiers.types_check:types_check"
