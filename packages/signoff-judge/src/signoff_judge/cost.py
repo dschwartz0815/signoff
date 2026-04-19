@@ -46,6 +46,12 @@ class ModelRates:
 #: Rate table. Keys are the exact ``model`` strings providers accept
 #: on the wire — not friendly names. Unknown models are handled by
 #: :func:`estimate_cost` with a WARNING.
+#:
+#: Opus 4.7 note: its updated tokenizer typically produces ~1.0x-1.35x
+#: more tokens than older Claude models for the same input text, per
+#: Anthropic's migration guide. The per-million rates here stay the
+#: same; budget estimates that assume older-tokenizer counts will
+#: under-predict slightly for Opus 4.7.
 RATES: dict[str, ModelRates] = {
     # --- Anthropic ---------------------------------------------------------
     "claude-haiku-4-5": ModelRates(
@@ -55,17 +61,24 @@ RATES: dict[str, ModelRates] = {
         effective_date="2026-04-19",
         source="https://www.anthropic.com/pricing",
     ),
-    "claude-sonnet-4-5": ModelRates(
-        model="claude-sonnet-4-5",
+    "claude-sonnet-4-6": ModelRates(
+        model="claude-sonnet-4-6",
         input_usd_per_million=3.00,
         output_usd_per_million=15.00,
         effective_date="2026-04-19",
         source="https://www.anthropic.com/pricing",
     ),
+    "claude-opus-4-6": ModelRates(
+        model="claude-opus-4-6",
+        input_usd_per_million=5.00,
+        output_usd_per_million=25.00,
+        effective_date="2026-04-19",
+        source="https://www.anthropic.com/pricing",
+    ),
     "claude-opus-4-7": ModelRates(
         model="claude-opus-4-7",
-        input_usd_per_million=15.00,
-        output_usd_per_million=75.00,
+        input_usd_per_million=5.00,
+        output_usd_per_million=25.00,
         effective_date="2026-04-19",
         source="https://www.anthropic.com/pricing",
     ),
