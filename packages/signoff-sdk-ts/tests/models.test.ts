@@ -17,7 +17,14 @@ import {
 
 describe('§3.1 id regex', () => {
   const goodIds = ['a', '0', 'dlv_01HXYZ', 'Z-x-9', 'x'.repeat(128)];
-  const badIds = ['', '_leading_underscore', '-leading-dash', 'has space', 'x'.repeat(129), 'emoji-🚫'];
+  const badIds = [
+    '',
+    '_leading_underscore',
+    '-leading-dash',
+    'has space',
+    'x'.repeat(129),
+    'emoji-🚫',
+  ];
 
   for (const id of goodIds) {
     it(`accepts ${JSON.stringify(id)}`, () => {
@@ -49,13 +56,20 @@ describe('§3.2 Deliverable', () => {
 
   it('accepts any JSON-serializable content', () => {
     for (const payload of [{ a: 1 }, [1, 2], 'text', 3, 3.14, true, null]) {
-      expect(() => DeliverableSchema.parse({ id: 'dlv_1', kind: 'k', content: payload })).not.toThrow();
+      expect(() =>
+        DeliverableSchema.parse({ id: 'dlv_1', kind: 'k', content: payload }),
+      ).not.toThrow();
     }
   });
 
   it('validates created_at as ISO-8601', () => {
     expect(() =>
-      DeliverableSchema.parse({ id: 'dlv_1', kind: 'k', content: null, created_at: '2026-04-18T14:22:10Z' }),
+      DeliverableSchema.parse({
+        id: 'dlv_1',
+        kind: 'k',
+        content: null,
+        created_at: '2026-04-18T14:22:10Z',
+      }),
     ).not.toThrow();
     expect(() =>
       DeliverableSchema.parse({ id: 'dlv_1', kind: 'k', content: null, created_at: 'not a date' }),
@@ -73,7 +87,9 @@ describe('§3.3 Claim', () => {
   }
 
   it('accepts pack-namespaced kinds', () => {
-    expect(() => ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'legal.clause_reference' })).not.toThrow();
+    expect(() =>
+      ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'legal.clause_reference' }),
+    ).not.toThrow();
   });
 
   for (const kind of ['', 'unscoped_unknown', 'Legal.Foo', 'legal.', '.clause', 'has space.x']) {
@@ -83,14 +99,24 @@ describe('§3.3 Claim', () => {
   }
 
   it('requires non-negative ordered span', () => {
-    expect(() => ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', span: [0, 10] })).not.toThrow();
-    expect(() => ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', span: [-1, 5] })).toThrow();
-    expect(() => ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', span: [10, 5] })).toThrow();
+    expect(() =>
+      ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', span: [0, 10] }),
+    ).not.toThrow();
+    expect(() =>
+      ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', span: [-1, 5] }),
+    ).toThrow();
+    expect(() =>
+      ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', span: [10, 5] }),
+    ).toThrow();
   });
 
   it('restricts provenance to reserved values', () => {
-    expect(() => ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', provenance: 'agent_asserted' })).not.toThrow();
-    expect(() => ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', provenance: 'guessed' })).toThrow();
+    expect(() =>
+      ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', provenance: 'agent_asserted' }),
+    ).not.toThrow();
+    expect(() =>
+      ClaimSchema.parse({ id: 'clm_1', text: 't', kind: 'citation', provenance: 'guessed' }),
+    ).toThrow();
   });
 });
 
@@ -146,9 +172,9 @@ describe('§3.5 VerifierResult', () => {
   });
 
   it('passed non-info requires evidence', () => {
-    expect(() =>
-      VerifierResultSchema.parse({ ...base, severity: 'warning' }),
-    ).toThrow(/§3\.5 invariant/);
+    expect(() => VerifierResultSchema.parse({ ...base, severity: 'warning' })).toThrow(
+      /§3\.5 invariant/,
+    );
     expect(() =>
       VerifierResultSchema.parse({ ...base, severity: 'warning', evidence: { note: 'x' } }),
     ).not.toThrow();
@@ -179,7 +205,12 @@ describe('§3.7 FeedbackPacket / BlockerEntry / WarningEntry', () => {
     });
     expect(p.passed).toBe(false);
     expect(() =>
-      FeedbackPacketSchema.parse({ passed: true, blockers: [], cost_usd: 0, protocol_version: '0.1' }),
+      FeedbackPacketSchema.parse({
+        passed: true,
+        blockers: [],
+        cost_usd: 0,
+        protocol_version: '0.1',
+      }),
     ).toThrow();
   });
 
@@ -194,12 +225,8 @@ describe('§3.7 FeedbackPacket / BlockerEntry / WarningEntry', () => {
   });
 
   it('entries require non-empty issue + repair', () => {
-    expect(() =>
-      BlockerEntrySchema.parse({ ...blocker, issue: '' }),
-    ).toThrow();
-    expect(() =>
-      WarningEntrySchema.parse({ ...blocker, suggested_repair: '' }),
-    ).toThrow();
+    expect(() => BlockerEntrySchema.parse({ ...blocker, issue: '' })).toThrow();
+    expect(() => WarningEntrySchema.parse({ ...blocker, suggested_repair: '' })).toThrow();
   });
 
   it('retry_budget_remaining non-negative', () => {

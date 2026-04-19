@@ -1,0 +1,12 @@
+{
+  "id": "clm_01HZ3BBB",
+  "text": "Revenue grew 14% year over year.",
+  "kind": "quantitative",
+  "evidence": {
+    "value": 0.14,
+    "unit": "percent",
+    "source_ref": "FY25 10-K, p.12"
+  },
+  "span": null,
+  "provenance": "extractor"
+}

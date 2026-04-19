@@ -25,7 +25,9 @@ setup-docker:
 # ---------- tests ----------
 
 # Run every test suite across Python and TypeScript.
-test: test-py test-ts
+# test-ts must run first so the SDK is built and schemas are synced
+# before the cross-language parity test tries to `node roundtrip_node.mjs`.
+test: test-ts test-py
 
 test-py:
     uv run pytest
@@ -39,8 +41,16 @@ test-py-mcp:
 test-py-code:
     uv run pytest packages/signoff-code
 
-test-ts:
+test-parity:
+    pnpm --filter @signoff/sdk build
+    uv run pytest tests/parity
+
+test-ts: test-ts-build
     pnpm -r test
+
+# Build @signoff/sdk so the cross-language parity test can import from dist.
+test-ts-build:
+    pnpm --filter @signoff/sdk build
 
 test-ts-sdk:
     pnpm --filter @signoff/sdk test

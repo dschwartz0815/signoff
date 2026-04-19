@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4
+      '@signoff/sdk':
+        specifier: workspace:*
+        version: link:packages/signoff-sdk-ts
       typescript:
         specifier: 5.4.5
         version: 5.4.5

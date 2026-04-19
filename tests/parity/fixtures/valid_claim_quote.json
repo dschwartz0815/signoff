@@ -1,0 +1,11 @@
+{
+  "id": "clm_01HZ3CCC",
+  "text": "The CEO said \"we are focused on durable growth\".",
+  "kind": "quote",
+  "evidence": {
+    "source_ref": "Q1 earnings call transcript",
+    "expected_exact_text": "we are focused on durable growth"
+  },
+  "span": [15, 47],
+  "provenance": "user_supplied"
+}

@@ -13,6 +13,8 @@
       "coverage",
       "**/*.md",
       "packages/*/src/**/*.js",
+      "packages/signoff-sdk-ts/src/schemas/**",
+      "packages/signoff-core/src/signoff/schemas/**",
       "cloud/**"
     ]
   },

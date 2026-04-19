@@ -1,0 +1,11 @@
+{
+  "id": "clm_01HZ3AAA",
+  "text": "A 2024 Gartner analysis found customer churn rises by 28%.",
+  "kind": "citation",
+  "evidence": {
+    "url": "https://gartner.com/report-xyz",
+    "source_ref": "Gartner 2024"
+  },
+  "span": [0, 58],
+  "provenance": "agent_asserted"
+}

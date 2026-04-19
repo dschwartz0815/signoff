@@ -71,7 +71,7 @@ export const DeliverableSchema = z
     metadata: z.record(z.string(), JsonValue).default({}),
     created_at: Iso8601Schema.nullable().default(null),
   })
-  .strict()
+
   .describe('Implements docs/protocol.md §3.2 Deliverable.');
 export type Deliverable = z.infer<typeof DeliverableSchema>;
 
@@ -82,14 +82,17 @@ export type Deliverable = z.infer<typeof DeliverableSchema>;
 const ReservedKindSet = new Set<string>(RESERVED_CLAIM_KINDS);
 const PACK_NAMESPACE_PATTERN = /^[a-z0-9_\-]+\.[a-z0-9_]+$/;
 
-const ClaimKindSchema = z.string().min(1).refine(
-  (v) => ReservedKindSet.has(v) || PACK_NAMESPACE_PATTERN.test(v),
-  (v) => ({
-    message:
-      `claim kind ${JSON.stringify(v)} is not reserved (§3.3.1) and lacks a pack namespace. ` +
-      `Use one of ${JSON.stringify([...RESERVED_CLAIM_KINDS])} or namespace as <pack>.<kind>.`,
-  }),
-);
+const ClaimKindSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (v) => ReservedKindSet.has(v) || PACK_NAMESPACE_PATTERN.test(v),
+    (v) => ({
+      message:
+        `claim kind ${JSON.stringify(v)} is not reserved (§3.3.1) and lacks a pack namespace. ` +
+        `Use one of ${JSON.stringify([...RESERVED_CLAIM_KINDS])} or namespace as <pack>.<kind>.`,
+    }),
+  );
 
 const ProvenanceSchema = z
   .enum(['agent_asserted', 'extractor', 'user_supplied'])
@@ -113,7 +116,7 @@ export const ClaimSchema = z
     span: SpanSchema,
     provenance: ProvenanceSchema,
   })
-  .strict()
+
   .describe('Implements docs/protocol.md §3.3 Claim.');
 export type Claim = z.infer<typeof ClaimSchema>;
 
@@ -135,7 +138,7 @@ export const VerifierResultSchema = z
     verifier_version: z.string().nullable().default(null),
     started_at: Iso8601Schema.nullable().default(null),
   })
-  .strict()
+
   .superRefine((r, ctx) => {
     if (!r.passed && r.severity === 'blocker' && r.suggestion === null) {
       ctx.addIssue({
@@ -160,16 +163,14 @@ export type VerifierResult = z.infer<typeof VerifierResultSchema>;
 // §3.7 FeedbackPacket + entries
 // ---------------------------------------------------------------------------
 
-const _PacketEntryObject = z
-  .object({
-    claim_id: IdSchema.nullable(),
-    claim_text: z.string().nullable().default(null),
-    verifier: VerifierNameSchema,
-    issue: z.string().min(1),
-    suggested_repair: z.string().min(1),
-    evidence_excerpt: z.string().nullable().default(null),
-  })
-  .strict();
+const _PacketEntryObject = z.object({
+  claim_id: IdSchema.nullable(),
+  claim_text: z.string().nullable().default(null),
+  verifier: VerifierNameSchema,
+  issue: z.string().min(1),
+  suggested_repair: z.string().min(1),
+  evidence_excerpt: z.string().nullable().default(null),
+});
 
 export const BlockerEntrySchema = _PacketEntryObject.describe(
   'Implements docs/protocol.md §3.7 BlockerEntry.',
@@ -189,7 +190,7 @@ export const FeedbackPacketSchema = z
     retry_budget_remaining: z.number().int().nonnegative().nullable().default(null),
     protocol_version: ProtocolVersionSchema,
   })
-  .strict()
+
   .describe('Implements docs/protocol.md §3.7 FeedbackPacket.');
 export type FeedbackPacket = z.infer<typeof FeedbackPacketSchema>;
 
@@ -212,7 +213,7 @@ export const VerdictSchema = z
     completed_at: Iso8601Schema,
     terminated_early: z.boolean().default(false),
   })
-  .strict()
+
   .superRefine((v, ctx) => {
     if (!v.passed && v.feedback_packet === null) {
       ctx.addIssue({

@@ -1,0 +1,13 @@
+{
+  "valid": {
+    "valid_deliverable": "Deliverable",
+    "valid_claim_citation": "Claim",
+    "valid_claim_quantitative": "Claim",
+    "valid_claim_quote": "Claim",
+    "valid_verifier_result_pass": "VerifierResult",
+    "valid_verifier_result_fail_blocker": "VerifierResult",
+    "valid_verdict_passed": "Verdict",
+    "valid_verdict_failed_with_feedback": "Verdict"
+  },
+  "invalid": ["invalid_deliverable_bad_id", "invalid_verifier_result_missing_suggestion"]
+}

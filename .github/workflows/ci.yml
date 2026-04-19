@@ -30,11 +30,28 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Sync dependencies
+      - name: Sync Python dependencies
         run: just setup-py
+
+      - name: Sync TypeScript dependencies
+        run: just setup-ts
+
+      - name: Build SDK (for cross-language parity test)
+        run: pnpm --filter @signoff/sdk build
 
       - name: Lint
         run: just lint-py

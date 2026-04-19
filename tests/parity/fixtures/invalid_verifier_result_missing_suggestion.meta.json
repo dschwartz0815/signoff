@@ -1,0 +1,5 @@
+{
+  "model": "VerifierResult",
+  "expect_error_on": "suggestion",
+  "reason": "§3.5 invariant — blocker failure requires non-null suggestion"
+}

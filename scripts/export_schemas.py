@@ -22,7 +22,6 @@ import sys
 from pathlib import Path
 
 from pydantic import BaseModel
-
 from signoff.models import (
     BlockerEntry,
     Claim,
@@ -89,9 +88,7 @@ def check_all() -> int:
             continue
         actual = path.read_bytes()
         if actual != expected:
-            drift.append(
-                f"drift: {path.relative_to(SCHEMAS_DIR.parent.parent.parent.parent)}"
-            )
+            drift.append(f"drift: {path.relative_to(SCHEMAS_DIR.parent.parent.parent.parent)}")
     if drift:
         sys.stderr.write(
             "JSON schema drift detected. Re-run `python scripts/export_schemas.py` "
@@ -104,7 +101,9 @@ def check_all() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
         "--check",
         action="store_true",

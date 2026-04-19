@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@signoff/sdk": "workspace:*",
     "typescript": "5.4.5"
   }
 }

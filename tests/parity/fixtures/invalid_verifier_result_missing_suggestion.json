@@ -1,0 +1,11 @@
+{
+  "verifier": "signoff-research.citation_existence",
+  "claim_id": "clm_01HZ3AAA",
+  "passed": false,
+  "severity": "blocker",
+  "reason": "Source URL returned HTTP 404.",
+  "suggestion": null,
+  "evidence": {},
+  "cost_usd": 0.0,
+  "duration_ms": 180
+}

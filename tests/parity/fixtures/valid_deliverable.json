@@ -1,0 +1,15 @@
+{
+  "id": "dlv_01HZ2ABC",
+  "kind": "research_report",
+  "content": {
+    "title": "Customer churn trends 2026",
+    "body": "Short body."
+  },
+  "metadata": {
+    "agent_id": "agent-42",
+    "session_id": "sess-01",
+    "task_description": "Summarize churn drivers",
+    "retry_count": 0
+  },
+  "created_at": "2026-04-18T14:22:10Z"
+}

@@ -1,0 +1,5 @@
+{
+  "model": "Deliverable",
+  "expect_error_on": "id",
+  "reason": "§3.1 id regex — leading underscore is not allowed"
+}
