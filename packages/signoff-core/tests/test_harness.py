@@ -120,7 +120,7 @@ def _build_harness(
     return Harness(
         config=cfg,
         registry=registry,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
         clock=lambda: datetime(2026, 4, 18, 14, 22, 10, tzinfo=UTC),
@@ -192,7 +192,7 @@ async def test_resolution_disabled_verifier_excluded(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -222,7 +222,7 @@ async def test_resolution_sample_rate_zero_excludes(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -255,7 +255,7 @@ async def test_resolution_sample_rate_seed_is_reproducible(
         h = Harness(
             config=cfg,
             registry=r,
-            runtimes={"local": LocalRuntime()},
+            runtimes=[LocalRuntime()],
             http=FakeHttpClient(),
             judge=FakeJudge(),
         )
@@ -321,7 +321,7 @@ async def test_severity_override_upgrades_pass_result(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -352,7 +352,7 @@ async def test_missing_runtime_falls_back_to_local(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -503,7 +503,7 @@ async def test_budget_exhausted_skips_expensive_tier(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -630,7 +630,7 @@ async def test_early_termination_skips_remaining_tiers(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -733,7 +733,7 @@ async def test_severity_override_warning_to_blocker_synthesises_suggestion(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
@@ -851,13 +851,62 @@ async def test_malformed_result_downgraded_to_synthetic_info(
     h = Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     )
     # Should not raise — the harness absorbs the malformed result.
     verdict = await h.verify(deliverable, claims[:1])
     assert isinstance(verdict, type(verdict))  # smoke — produced a verdict
+
+
+def test_harness_accepts_runtimes_as_list() -> None:
+    cfg = load_config(path=None, pack_defaults=False, env_overrides=False)
+    h = Harness(
+        config=cfg,
+        registry=Registry(),
+        runtimes=[LocalRuntime()],
+        http=FakeHttpClient(),
+        judge=FakeJudge(),
+    )
+    assert "local" in h.runtimes
+    assert h.runtimes["local"].runtime_id == "local"
+
+
+def test_harness_rejects_duplicate_runtime_ids() -> None:
+    cfg = load_config(path=None, pack_defaults=False, env_overrides=False)
+    with pytest.raises(ValueError, match="unique"):
+        Harness(
+            config=cfg,
+            registry=Registry(),
+            runtimes=[LocalRuntime(), LocalRuntime()],
+            http=FakeHttpClient(),
+            judge=FakeJudge(),
+        )
+
+
+def test_harness_dict_form_requires_matching_keys() -> None:
+    cfg = load_config(path=None, pack_defaults=False, env_overrides=False)
+    with pytest.raises(ValueError, match="runtime_id"):
+        Harness(
+            config=cfg,
+            registry=Registry(),
+            runtimes={"wrong": LocalRuntime()},
+            http=FakeHttpClient(),
+            judge=FakeJudge(),
+        )
+
+
+def test_harness_dict_form_with_matching_keys_ok() -> None:
+    cfg = load_config(path=None, pack_defaults=False, env_overrides=False)
+    h = Harness(
+        config=cfg,
+        registry=Registry(),
+        runtimes=[LocalRuntime()],
+        http=FakeHttpClient(),
+        judge=FakeJudge(),
+    )
+    assert "local" in h.runtimes
 
 
 @pytest.mark.asyncio

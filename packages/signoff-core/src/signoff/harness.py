@@ -134,14 +134,14 @@ class Harness:
         *,
         config: HarnessConfig,
         registry: Registry,
-        runtimes: Mapping[str, Runtime],
+        runtimes: list[Runtime] | Mapping[str, Runtime],
         http: HttpClient,
         judge: JudgeClient,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.config = config
         self.registry = registry
-        self.runtimes: dict[str, Runtime] = dict(runtimes)
+        self.runtimes: dict[str, Runtime] = _normalise_runtimes(runtimes)
         if "local" not in self.runtimes:
             # Ensure a fallback always exists; §5.2 falls back to 'local'.
             self.runtimes["local"] = LocalRuntime()
@@ -175,7 +175,7 @@ class Harness:
         return cls(
             config=cfg,
             registry=default_registry,
-            runtimes={"local": LocalRuntime()},
+            runtimes=[LocalRuntime()],
             http=http if http is not None else FakeHttpClient(),
             judge=judge if judge is not None else FakeJudge(),
         )
@@ -826,6 +826,36 @@ class Harness:
 
 def _fqn(p: _PlannedVerifierRun) -> str:
     return p.verifier.signoff_meta.fully_qualified_name
+
+
+def _normalise_runtimes(
+    runtimes: list[Runtime] | Mapping[str, Runtime],
+) -> dict[str, Runtime]:
+    """Accept runtimes as a list keyed by ``runtime_id`` or a dict.
+
+    List form is preferred — the key is just ``runtime.runtime_id`` so
+    a dict duplicates the information. Dict form stays supported for
+    callers that have explicit keying needs, but we validate that each
+    key matches its value's ``runtime_id``.
+    """
+    if isinstance(runtimes, Mapping):
+        out: dict[str, Runtime] = {}
+        for key, rt in runtimes.items():
+            if rt.runtime_id != key:
+                raise ValueError(
+                    f"Runtime registered under key {key!r} has runtime_id={rt.runtime_id!r}; "
+                    "the key must match the runtime_id."
+                )
+            out[key] = rt
+        return out
+    seen: dict[str, Runtime] = {}
+    for rt in runtimes:
+        if rt.runtime_id in seen:
+            raise ValueError(
+                f"Two runtimes declare runtime_id={rt.runtime_id!r}; runtime ids must be unique."
+            )
+        seen[rt.runtime_id] = rt
+    return seen
 
 
 _DEFAULT_SAMPLER: random.Random | None = None

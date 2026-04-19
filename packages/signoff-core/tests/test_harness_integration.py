@@ -133,7 +133,7 @@ async def test_end_to_end_happy_path(
     async with Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     ) as h:
@@ -176,7 +176,7 @@ async def test_end_to_end_failure_produces_feedback_packet(
     async with Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     ) as h:
@@ -223,7 +223,7 @@ async def test_determinism_with_sampling_seed(
         async with Harness(
             config=cfg,
             registry=r,
-            runtimes={"local": LocalRuntime()},
+            runtimes=[LocalRuntime()],
             http=FakeHttpClient(),
             judge=FakeJudge(),
         ) as h:
@@ -265,7 +265,7 @@ async def test_verdict_round_trips_via_pydantic(
     async with Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     ) as h:
@@ -312,7 +312,7 @@ async def test_demo_snippet_from_readme(
     async with Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     ) as h:
@@ -372,7 +372,7 @@ async def test_dependency_chain_cheap_then_medium(
     async with Harness(
         config=cfg,
         registry=r,
-        runtimes={"local": LocalRuntime()},
+        runtimes=[LocalRuntime()],
         http=FakeHttpClient(),
         judge=FakeJudge(),
     ) as h:
