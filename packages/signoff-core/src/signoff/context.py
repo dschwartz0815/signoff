@@ -64,7 +64,15 @@ class ExecResult:
 
 @dataclass(frozen=True, slots=True)
 class FetchResult:
-    """Outcome of a :meth:`HttpClient.get` / ``.head`` call."""
+    """Outcome of a :meth:`HttpClient.get` / ``.head`` call.
+
+    ``ok`` is ``True`` when the HTTP layer reached the server and the
+    response doesn't indicate failure (status < 400, no transport error,
+    no policy rejection). ``error`` carries a human-readable reason
+    when ``ok`` is False — useful both for verifier authors writing
+    :meth:`VerifierContext.fail` messages and for the harness when a
+    fetch fails outside a verifier's own logic.
+    """
 
     ok: bool
     status_code: int
@@ -72,6 +80,17 @@ class FetchResult:
     text: str
     headers: Mapping[str, str]
     duration_ms: int
+    error: str | None = None
+    attempts: int = 1
+    #: URL after following redirects. When empty at construction, falls
+    #: back to ``url`` in ``__post_init__`` so legacy callers get a
+    #: sensible value without changing the constructor.
+    final_url: str = ""
+    from_cache: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.final_url:
+            object.__setattr__(self, "final_url", self.url)
 
 
 @dataclass(frozen=True, slots=True)

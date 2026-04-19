@@ -211,6 +211,53 @@ async def test_fake_judge_returns_queued_then_default() -> None:
     assert len(j.calls) == 3
 
 
+def test_fetch_result_backfills_final_url_from_url() -> None:
+    """``FetchResult.final_url`` defaults to the request URL when not
+    explicitly provided, so existing callers don't have to change."""
+    r = FetchResult(
+        ok=True,
+        status_code=200,
+        url="https://example.com/page",
+        text="hi",
+        headers={},
+        duration_ms=1,
+    )
+    assert r.final_url == "https://example.com/page"
+    assert r.error is None
+    assert r.attempts == 1
+    assert r.from_cache is False
+
+
+def test_fetch_result_preserves_explicit_final_url() -> None:
+    """When the caller sets ``final_url`` (e.g., after a redirect chain),
+    ``__post_init__`` leaves it alone."""
+    r = FetchResult(
+        ok=True,
+        status_code=200,
+        url="https://example.com/a",
+        text="hi",
+        headers={},
+        duration_ms=1,
+        final_url="https://example.com/b",
+    )
+    assert r.final_url == "https://example.com/b"
+
+
+def test_fetch_result_error_field_for_failures() -> None:
+    r = FetchResult(
+        ok=False,
+        status_code=0,
+        url="https://example.com/",
+        text="",
+        headers={},
+        duration_ms=5,
+        error="robots.txt disallows /admin for Signoff/0.0",
+        attempts=1,
+    )
+    assert r.ok is False
+    assert r.error is not None and "robots" in r.error
+
+
 @pytest.mark.asyncio
 async def test_fake_judge_without_default_raises_when_drained() -> None:
     j = FakeJudge()
