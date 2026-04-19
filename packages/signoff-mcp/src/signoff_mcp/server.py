@@ -273,7 +273,7 @@ class SignoffMCPServer:
         import uvicorn
 
         setup_logging(stream=sys.stderr)
-        _route_uvicorn_through_signoff_handler()
+        _route_external_loggers_through_signoff()
         app = self.build_app()
         starlette_app = _build_http_app(self, app)
         config = uvicorn.Config(
@@ -323,27 +323,49 @@ def _is_enabled(cfg: HarnessConfig, fqn: str) -> bool:
     return (not any_mention) or any_enabled
 
 
-def _route_uvicorn_through_signoff_handler() -> None:
-    """Attach the ``signoff`` logger's handler to Uvicorn's loggers.
+def _route_external_loggers_through_signoff() -> None:
+    """Route external-library loggers through the same handler
+    :func:`signoff.setup_logging` installed on the ``signoff`` logger.
 
-    Uvicorn's ``uvicorn.error`` and ``uvicorn.access`` loggers start
-    out with no handlers. With ``log_config=None`` we opt out of
-    Uvicorn's dictConfig, so those loggers stay empty unless we attach
-    a handler explicitly. Routing them through the same handler
-    :func:`signoff.setup_logging` installed keeps app logs and access
-    logs in one format.
+    Three categories of external log emitter need attention in the
+    HTTP-transport MCP server process:
+
+    - ``uvicorn`` — ``uvicorn.error`` + ``uvicorn.access``. With our
+      ``log_config=None`` (see :meth:`SignoffMCPServer.serve_http`),
+      Uvicorn's dictConfig doesn't run, so these loggers have no
+      handlers. Route them through our handler so startup banners
+      and request access lines share the Signoff format.
+    - ``mcp`` — the MCP SDK's named loggers.
+    - The root logger — catches dependencies that call
+      :func:`logging.warning` directly (without first resolving a
+      named logger). The MCP SDK does this at
+      ``mcp/shared/session.py:logging.warning("Failed to validate
+      request: …")`` for the protocol-level handshake warning that
+      fires on SSE reconnects. Without this, those records fall
+      through to Python's lastResort / basicConfig bare
+      ``"LEVEL:name:message"`` format — which no other line in our
+      stream uses.
+
+    Root-handler attachment is scoped to this function (only called
+    from :meth:`SignoffMCPServer.serve_http`). In library-embedded
+    use — where ``setup_logging`` is opt-in and this helper is never
+    invoked — root stays untouched.
     """
     signoff_logger = logging.getLogger("signoff")
     handlers = list(signoff_logger.handlers)
     if not handlers:
         return
-    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "mcp"):
         logger = logging.getLogger(name)
         logger.handlers = handlers
         logger.setLevel(logging.INFO)
-        # Don't also propagate to root — that would duplicate output for
-        # callers with their own root handler.
+        # Don't also propagate to root — the root-handler attachment
+        # below would otherwise duplicate the record.
         logger.propagate = False
+    root = logging.getLogger()
+    root.handlers = handlers
+    if root.level == logging.NOTSET or root.level > logging.INFO:
+        root.setLevel(logging.INFO)
 
 
 def _format_validation_error(exc: ValidationError) -> str:

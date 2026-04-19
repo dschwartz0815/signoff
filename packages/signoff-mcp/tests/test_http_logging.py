@@ -171,15 +171,17 @@ def test_http_server_does_not_emit_uvicorn_default_format(tmp_path: Path) -> Non
             _, stderr_bytes = proc.communicate()
 
     stderr = stderr_bytes.decode("utf-8", errors="replace")
-    # Uvicorn's default formatter writes lines like:
-    #     "INFO:     Started server process [12345]"
-    # with a colon, many spaces, then the message. Our format always
-    # carries a timestamp+logger+level+":" shape, so the two are
-    # distinguishable by the leading character sequence.
-    default_fmt = re.compile(r"^(?:INFO|WARNING|ERROR):\s{2,}", re.MULTILINE)
-    assert not default_fmt.search(stderr), (
-        "Uvicorn's default log format leaked into stderr — log_config=None "
-        "was removed or is ineffective.\n" + stderr
+    # Two kinds of bare-format leak we guard against:
+    #   - Uvicorn's default formatter:   "INFO:     message"
+    #   - logging.basicConfig / lastResort: "WARNING:root:message" or
+    #     "WARNING:mcp.shared.session:message"
+    # Both match `^LEVEL:` with no preceding timestamp. Our Signoff
+    # format always starts with a "YYYY-MM-DD …" date, so these
+    # patterns are disjoint.
+    bare_fmt = re.compile(r"^(?:DEBUG|INFO|WARNING|ERROR|CRITICAL):", re.MULTILINE)
+    assert not bare_fmt.search(stderr), (
+        "bare LEVEL:... format leaked into stderr — a logger fell through "
+        "to Python's lastResort or Uvicorn's default log_config.\n" + stderr
     )
 
 
@@ -190,6 +192,66 @@ def test_http_server_does_not_emit_uvicorn_default_format(tmp_path: Path) -> Non
 TOOL_HANDLER_LOG = re.compile(
     r"INFO signoff\.mcp[\w.]*:\s*(?:request_signoff|list_verifiers|get_verdict)\b"
 )
+
+
+@pytest.mark.integration
+def test_root_logger_warning_uses_signoff_format(tmp_path: Path) -> None:
+    """The MCP SDK logs init-handshake warnings via
+    ``logging.warning(...)`` at module level (see
+    ``mcp/shared/session.py:383``):
+
+        logging.warning(f"Failed to validate request: {e}")
+
+    That's the root logger — not ``signoff.*``, not ``mcp.*`` —
+    because the call bypasses any named logger. Without explicit
+    root-logger routing it falls through to Python's ``basicConfig``
+    / ``lastResort`` and prints in bare ``"WARNING:root:..."``
+    format, not our Signoff format.
+
+    Simulating the init race reliably against a live MCP server is
+    fiddly (SSE lifecycle + cross-task session_id extraction), so
+    this test reproduces the same logging path directly: spawn a
+    Python subprocess that calls ``setup_logging`` +
+    ``_route_external_loggers_through_signoff`` exactly as
+    ``serve_http`` does, then emits the SDK's exact
+    ``logging.warning(...)`` call. Asserts the line lands with
+    Signoff's date-prefixed format.
+
+    Regression: remove root-logger routing from
+    ``_route_external_loggers_through_signoff`` and this test fails
+    with a bare ``WARNING:root:...`` line in stderr.
+    """
+    script = (
+        "import logging, sys\n"
+        "from signoff import setup_logging\n"
+        "from signoff_mcp.server import _route_external_loggers_through_signoff\n"
+        "setup_logging(stream=sys.stderr)\n"
+        "_route_external_loggers_through_signoff()\n"
+        "logging.warning('Failed to validate request: simulated init race')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        timeout=15,
+    )
+
+    assert "Failed to validate request: simulated init race" in result.stderr, (
+        "expected simulated SDK warning in stderr; got:\n" + result.stderr
+    )
+    formatted_warning = re.compile(
+        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ WARNING "
+        r"[\w.\-]+: Failed to validate request: simulated init race"
+    )
+    assert formatted_warning.search(result.stderr), (
+        "MCP SDK's logging.warning(...) path landed in bare format. "
+        "Root-logger routing in _route_external_loggers_through_signoff "
+        "is probably missing.\n" + result.stderr
+    )
+    assert "WARNING:root:Failed to validate request" not in result.stderr, (
+        "bare 'WARNING:root:' form leaked; root-logger handler not installed.\n" + result.stderr
+    )
 
 
 @pytest.mark.integration
