@@ -95,9 +95,7 @@ async def test_503_then_200_retries_and_succeeds() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(next(states), text="ok")
 
-    async with HttpxClient(
-        _cfg(max_retries=2), transport=_transport(handler)
-    ) as http:
+    async with HttpxClient(_cfg(max_retries=2), transport=_transport(handler)) as http:
         result = await http.get("https://example.com/")
     assert result.ok is True
     assert result.status_code == 200
@@ -108,9 +106,7 @@ async def test_all_attempts_503_returns_last_status() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(503)
 
-    async with HttpxClient(
-        _cfg(max_retries=2), transport=_transport(handler)
-    ) as http:
+    async with HttpxClient(_cfg(max_retries=2), transport=_transport(handler)) as http:
         result = await http.get("https://example.com/")
     assert result.ok is False
     assert result.status_code == 503
@@ -122,9 +118,7 @@ async def test_connect_error_retried_then_surfaced() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down")
 
-    async with HttpxClient(
-        _cfg(max_retries=1), transport=_transport(handler)
-    ) as http:
+    async with HttpxClient(_cfg(max_retries=1), transport=_transport(handler)) as http:
         result = await http.get("https://example.com/")
     assert result.ok is False
     assert result.status_code == 0
@@ -142,9 +136,7 @@ async def test_response_exceeding_size_cap_marked_truncated() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=body)
 
-    async with HttpxClient(
-        _cfg(max_response_bytes=1024), transport=_transport(handler)
-    ) as http:
+    async with HttpxClient(_cfg(max_response_bytes=1024), transport=_transport(handler)) as http:
         result = await http.get("https://example.com/")
     assert result.ok is False
     assert result.error is not None
@@ -215,9 +207,7 @@ async def test_robots_disallow_skips_request() -> None:
         cache_seconds=60,
         transport=_transport(robots_handler),
     )
-    async with HttpxClient(
-        config, robots=robots, transport=_transport(robots_handler)
-    ) as http:
+    async with HttpxClient(config, robots=robots, transport=_transport(robots_handler)) as http:
         result = await http.get("https://example.com/secret/x")
     assert result.ok is False
     assert result.error is not None
@@ -256,8 +246,6 @@ async def test_per_request_timeout_clamped_to_total_timeout(
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text="")
 
-    async with HttpxClient(
-        _cfg(total_timeout=1.0), transport=_transport(handler)
-    ) as http:
+    async with HttpxClient(_cfg(total_timeout=1.0), transport=_transport(handler)) as http:
         await http.get("https://example.com/", timeout=30)
     assert any("Clamping" in rec.message for rec in caplog.records)

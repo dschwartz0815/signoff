@@ -82,9 +82,7 @@ async def test_redirect_records_final_url() -> None:
 
 
 async def test_size_cap_enforced_against_real_streamed_response() -> None:
-    async with HttpxClient(
-        _cfg(max_response_bytes=1024), transport=_transport()
-    ) as http:
+    async with HttpxClient(_cfg(max_response_bytes=1024), transport=_transport()) as http:
         result = await http.get("http://testserver/big")
     assert result.ok is False
     assert len(result.text) == 1024

@@ -471,3 +471,25 @@ def test_env_scalar_collision_is_logged(
     # by insertion, which on Python 3.11+ matches setenv order in tests.
     # If the colliding var is observed second, a warning is logged.
     # We accept either outcome — the important thing is no crash.
+
+
+def test_http_config_defaults_to_httpx() -> None:
+    cfg = load_config(path=None, pack_defaults=False, env_overrides=False)
+    assert cfg.http.provider == "httpx"
+
+
+def test_http_config_provider_fake_round_trips(tmp_path):  # type: ignore[no-untyped-def]
+    p = tmp_path / "cfg.yaml"
+    p.write_text('protocol_version: "0.1"\nhttp:\n  provider: fake\n')
+    cfg = load_config(path=p, pack_defaults=False, env_overrides=False)
+    assert cfg.http.provider == "fake"
+
+
+def test_http_config_rejects_unknown_provider(tmp_path):  # type: ignore[no-untyped-def]
+    p = tmp_path / "cfg.yaml"
+    p.write_text('protocol_version: "0.1"\nhttp:\n  provider: curl\n')
+    import pytest
+    from signoff.config import ConfigurationError
+
+    with pytest.raises(ConfigurationError):
+        load_config(path=p, pack_defaults=False, env_overrides=False)

@@ -72,17 +72,13 @@ def classify(
             return RetryDecision(should_retry=True, reason="protocol_error")
         # TLS / DNS / programming errors are non-retryable; surface
         # the class name so the audit log is still useful.
-        return RetryDecision(
-            should_retry=False, reason=f"non_retryable_{type(exception).__name__}"
-        )
+        return RetryDecision(should_retry=False, reason=f"non_retryable_{type(exception).__name__}")
 
     assert response is not None  # exhaustive with the branch above
     status = response.status_code
     if status in RETRYABLE_STATUS_CODES:
         server = parse_retry_after(response.headers.get("retry-after"))
-        return RetryDecision(
-            should_retry=True, reason=f"http_{status}", server_backoff=server
-        )
+        return RetryDecision(should_retry=True, reason=f"http_{status}", server_backoff=server)
     # Everything else (2xx/3xx/4xx other than 429) is terminal.
     return RetryDecision(should_retry=False, reason=f"http_{status}")
 

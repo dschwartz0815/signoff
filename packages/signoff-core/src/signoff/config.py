@@ -45,6 +45,7 @@ __all__ = [
     "ConfigurationError",
     "DeliverableConfig",
     "HarnessConfig",
+    "HttpConfig",
     "JudgeConfig",
     "RetryConfig",
     "RuntimeConfig",
@@ -143,6 +144,25 @@ class RetryConfig(BaseModel):
     default_budget: int = Field(default=3, ge=0)
 
 
+class HttpConfig(BaseModel):
+    """HTTP client selection for :meth:`Harness.from_config_path`.
+
+    ``provider="httpx"`` (the default) wires up the real
+    :class:`signoff_http.HttpxClient`. ``provider="fake"`` stays on
+    :class:`signoff.testing.FakeHttpClient` — useful for offline
+    unit runs and deterministic regression suites.
+
+    Fine-grained httpx tuning (timeouts, retries, size caps, robots)
+    lives in ``signoff-http``'s own ``SIGNOFF_HTTP_*`` namespace per
+    ``docs/configuration.md``; we do not duplicate it here to avoid
+    two places of truth.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: Literal["httpx", "fake"] = "httpx"
+
+
 class HarnessConfig(BaseModel):
     """Top-level harness configuration. Implements protocol §6.1."""
 
@@ -155,6 +175,7 @@ class HarnessConfig(BaseModel):
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     runtime_policy: RuntimePolicyConfig = Field(default_factory=RuntimePolicyConfig)
     judge: JudgeConfig | None = None
+    http: HttpConfig = Field(default_factory=HttpConfig)
     retries: RetryConfig = Field(default_factory=RetryConfig)
 
 

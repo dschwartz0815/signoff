@@ -179,19 +179,18 @@ class Harness:
           installed pack via the ``signoff.verifiers`` entry point
           group per protocol §4.2).
         - ``runtimes`` →  ``[LocalRuntime()]``.
-        - ``http``     →  :class:`signoff.testing.FakeHttpClient` — a
-          Phase 0 placeholder. Swapped for a real httpx-backed
-          implementation in a later PR; a single INFO log line fires
-          so production deployments notice they're on the fake.
-        - ``judge``    →  :class:`signoff.testing.FakeJudge` — same
-          Phase 0 story as ``http``.
+        - ``http``     →  chosen by ``config.http.provider``:
+          ``httpx`` (default) wires up :class:`signoff_http.HttpxClient`
+          if the ``signoff-http`` package is installed; missing the
+          install logs a WARNING and falls back to
+          :class:`signoff.testing.FakeHttpClient`. ``fake`` stays on
+          the fake unconditionally.
+        - ``judge``    →  :class:`signoff.testing.FakeJudge` — the real
+          LLM-judge client lands in a later PR.
         - ``clock``    →  wall-clock UTC.
 
         Raises :class:`~signoff.config.ConfigurationError` on bad config.
         """
-        # TODO(phase1-http): replace FakeHttpClient with
-        # signoff.http.AsyncHttpxClient when that lands. Same for judge
-        # once signoff.judge.AnthropicJudge arrives.
         from signoff.testing import FakeHttpClient, FakeJudge  # lazy — test deps
 
         effective_registry = registry if registry is not None else Registry.discovered()
@@ -200,10 +199,7 @@ class Harness:
 
         effective_runtimes: list[Runtime] = runtimes if runtimes is not None else [LocalRuntime()]
         if http is None:
-            _logger.info(
-                "Using FakeHttpClient — no real HTTP client configured. "
-                "See docs/configuration.md for production setup."
-            )
+            http = _resolve_http_client(cfg, fake_factory=FakeHttpClient)
         if judge is None:
             _logger.info(
                 "Using FakeJudge — no real LLM judge configured. "
@@ -214,7 +210,7 @@ class Harness:
             "config": cfg,
             "registry": effective_registry,
             "runtimes": effective_runtimes,
-            "http": http if http is not None else FakeHttpClient(),
+            "http": http,
             "judge": judge if judge is not None else FakeJudge(),
         }
         if clock is not None:
@@ -867,6 +863,34 @@ class Harness:
 
 def _fqn(p: _PlannedVerifierRun) -> str:
     return p.verifier.signoff_meta.fully_qualified_name
+
+
+def _resolve_http_client(
+    config: HarnessConfig, *, fake_factory: Callable[[], HttpClient]
+) -> HttpClient:
+    """Select the HTTP client backend per :attr:`HarnessConfig.http`.
+
+    ``provider="fake"`` always returns the fake (no log). ``provider="httpx"``
+    tries ``signoff_http.HttpxClient`` and falls back to the fake with a
+    WARNING if the package isn't installed — so a misconfigured
+    deployment still produces a runnable harness with visible logs
+    instead of an ImportError at startup.
+    """
+    provider = config.http.provider
+    if provider == "fake":
+        _logger.info("HTTP provider=fake — using FakeHttpClient for this harness.")
+        return fake_factory()
+    try:
+        from signoff_http import HttpxClient
+    except ImportError:
+        _logger.warning(
+            "HTTP provider=httpx but signoff-http is not installed; "
+            "falling back to FakeHttpClient. `pip install signoff-http` "
+            "to enable real HTTP fetches."
+        )
+        return fake_factory()
+    _logger.info("HTTP provider=httpx — using HttpxClient.")
+    return HttpxClient()
 
 
 def _normalise_runtimes(

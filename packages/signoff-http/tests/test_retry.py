@@ -44,9 +44,7 @@ def test_classify_429_picks_up_retry_after() -> None:
 
 
 def test_classify_connect_timeout_is_retryable() -> None:
-    d = classify(
-        method="GET", response=None, exception=httpx.ConnectTimeout("x")
-    )
+    d = classify(method="GET", response=None, exception=httpx.ConnectTimeout("x"))
     assert d.should_retry is True
     assert d.reason == "connect_timeout"
 
@@ -93,34 +91,20 @@ def test_parse_retry_after(header: str | None, expected: float | None) -> None:
 
 
 def test_backoff_exponential_growth() -> None:
-    assert (
-        backoff_seconds(attempt=1, base=0.5, factor=2.0, max_backoff=10.0) == 0.5
-    )
-    assert (
-        backoff_seconds(attempt=2, base=0.5, factor=2.0, max_backoff=10.0) == 1.0
-    )
-    assert (
-        backoff_seconds(attempt=3, base=0.5, factor=2.0, max_backoff=10.0) == 2.0
-    )
+    assert backoff_seconds(attempt=1, base=0.5, factor=2.0, max_backoff=10.0) == 0.5
+    assert backoff_seconds(attempt=2, base=0.5, factor=2.0, max_backoff=10.0) == 1.0
+    assert backoff_seconds(attempt=3, base=0.5, factor=2.0, max_backoff=10.0) == 2.0
     # Clamped at max_backoff.
-    assert (
-        backoff_seconds(attempt=20, base=0.5, factor=2.0, max_backoff=10.0) == 10.0
-    )
+    assert backoff_seconds(attempt=20, base=0.5, factor=2.0, max_backoff=10.0) == 10.0
 
 
 def test_backoff_server_hint_wins() -> None:
     assert (
-        backoff_seconds(
-            attempt=5, base=0.5, factor=2.0, max_backoff=10.0, server_hint=2.5
-        )
-        == 2.5
+        backoff_seconds(attempt=5, base=0.5, factor=2.0, max_backoff=10.0, server_hint=2.5) == 2.5
     )
 
 
 def test_backoff_server_hint_clamped() -> None:
     assert (
-        backoff_seconds(
-            attempt=1, base=0.5, factor=2.0, max_backoff=4.0, server_hint=60.0
-        )
-        == 4.0
+        backoff_seconds(attempt=1, base=0.5, factor=2.0, max_backoff=4.0, server_hint=60.0) == 4.0
     )

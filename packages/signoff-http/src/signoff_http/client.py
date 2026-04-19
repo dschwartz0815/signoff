@@ -237,9 +237,7 @@ class HttpxClient:
         last_error: str | None = None
 
         for attempt in range(1, max_attempts + 1):
-            remaining = max(
-                0.05, self._config.total_timeout - (time.perf_counter() - started)
-            )
+            remaining = max(0.05, self._config.total_timeout - (time.perf_counter() - started))
             per_attempt_timeout = min(effective_timeout, remaining)
             try:
                 result = await self._single_attempt(
@@ -290,9 +288,7 @@ class HttpxClient:
                 if method == "GET" and self._cache is not None:
                     await self._cache.put(url, result)
                 return result
-            decision = classify(
-                method=method, response=_synthetic_response(result), exception=None
-            )
+            decision = classify(method=method, response=_synthetic_response(result), exception=None)
             last_error = result.error or decision.reason
             if (
                 not decision.should_retry

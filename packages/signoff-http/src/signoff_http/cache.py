@@ -89,9 +89,7 @@ class ResponseCache:
             return
         key = normalize_url(url)
         async with self._lock:
-            self._items[key] = _Entry(
-                value=value, expires_at=time.monotonic() + self._ttl
-            )
+            self._items[key] = _Entry(value=value, expires_at=time.monotonic() + self._ttl)
             self._items.move_to_end(key)
             while len(self._items) > self._max_entries:
                 self._items.popitem(last=False)
