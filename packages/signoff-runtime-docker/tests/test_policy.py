@@ -33,7 +33,9 @@ def test_defaults_produce_secure_baseline() -> None:
     assert "no-new-privileges" in kwargs["security_opt"]
     assert kwargs["read_only"] is True
     assert kwargs["tmpfs"]["/tmp"] == f"rw,size={config.tmpfs_size_mb}m"
-    assert kwargs["user"] == f"{config.run_as_uid}:{config.run_as_gid}"
+    # ``user`` is NOT a HostConfig key — the runtime passes it to
+    # ``create_container`` directly. translate_policy must not emit it.
+    assert "user" not in kwargs
     assert kwargs["pids_limit"] == config.default_pids_limit
     assert kwargs["auto_remove"] is True
 

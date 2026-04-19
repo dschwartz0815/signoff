@@ -289,7 +289,7 @@ class DockerRuntime:
                 working_dir=str(CONTAINER_WORKSPACE),
                 labels=labels,
                 host_config=host_config,
-                user=host_config_kwargs["user"],
+                user=f"{self._config.run_as_uid}:{self._config.run_as_gid}",
                 detach=True,
             )
             client.api.start(container["Id"])

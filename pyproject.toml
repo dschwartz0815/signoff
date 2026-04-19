@@ -86,10 +86,10 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--import-mode=importlib",
-    # Live API tests are opt-in: run them with `pytest -m live` (and
-    # the env-gated credentials the tests expect).
+    # Live / Docker-dependent tests are opt-in: run them with
+    # `pytest -m live` or `pytest -m docker` respectively.
     "-m",
-    "not live",
+    "not live and not docker",
 ]
 markers = [
     "unit: fast unit tests (default)",
@@ -97,4 +97,5 @@ markers = [
     "regression: pack regression suites with ground-truth labels",
     "parity: cross-language protocol parity tests",
     "live: calls real external APIs — opt-in, requires credentials",
+    "docker: requires a reachable Docker daemon — opt-in via `-m docker`",
 ]

@@ -1,0 +1,73 @@
+name: publish-sandbox-images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/signoff-runtime-docker/images/**"
+      - ".github/workflows/publish-sandbox-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  # Required for cosign keyless signing via the GitHub OIDC token.
+  id-token: write
+
+jobs:
+  generic-sandbox:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/signoff/generic-sandbox
+      CONTEXT: packages/signoff-runtime-docker/images/generic-sandbox
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        run: |
+          short_sha=$(git rev-parse --short=12 HEAD)
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE:$short_sha" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE:latest" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.CONTEXT }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          provenance: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign with cosign (keyless, OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign --yes "$IMAGE@${{ steps.build.outputs.digest }}"
+
+      - name: Install trivy
+        uses: aquasecurity/setup-trivy@v0
+        # Any version is fine — we only need the CLI.
+        with:
+          version: latest
+
+      - name: Scan for CRITICAL vulns
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed \
+            "$IMAGE@${{ steps.build.outputs.digest }}"

@@ -46,6 +46,10 @@ def translate_policy(policy: RuntimePolicy, config: DockerRuntimeConfig) -> dict
     mem_bytes = policy.memory_limit_bytes or config.default_memory_limit_mb * 1024 * 1024
     cpu_cores = policy.cpu_limit if policy.cpu_limit is not None else config.default_cpu_limit
     network_mode = _network_mode(policy, config)
+    # These keys are specifically the ones ``docker.APIClient.create_host_config``
+    # accepts. ``user`` belongs on ``create_container`` itself, not
+    # HostConfig — it lives on :attr:`DockerRuntimeConfig.run_as_uid`
+    # / ``run_as_gid`` and the runtime passes it separately.
     return {
         "mem_limit": f"{mem_bytes}b",
         "nano_cpus": int(cpu_cores * 1e9),
@@ -56,7 +60,6 @@ def translate_policy(policy: RuntimePolicy, config: DockerRuntimeConfig) -> dict
         "security_opt": ["no-new-privileges"],
         "read_only": config.read_only_rootfs,
         "tmpfs": {"/tmp": f"rw,size={config.tmpfs_size_mb}m"},
-        "user": f"{config.run_as_uid}:{config.run_as_gid}",
         "auto_remove": config.auto_remove,
     }
 
