@@ -363,7 +363,7 @@ async def test_from_config_path_with_no_overrides(
     c = [Claim(id="clm_a", text="x", kind="citation", evidence={"url": "u"})]
 
     with caplog.at_level("INFO", logger="signoff.harness"):
-        async with await Harness.from_config_path(cfg_path) as h:
+        async with await Harness.from_config_path(cfg_path, pack_defaults=False) as h:
             verdict = await h.verify(d, c)
 
     assert verdict.passed is True
@@ -407,7 +407,7 @@ async def test_from_config_path_http_provider_fake_uses_fake_client(
         "        enabled: true\n"
     )
     with caplog.at_level("INFO", logger="signoff.harness"):
-        h = await Harness.from_config_path(cfg_path)
+        h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     try:
         assert isinstance(h.http, _Fake)
     finally:
@@ -442,6 +442,7 @@ async def test_from_config_path_overrides_suppress_info_logs(
             runtimes=[LocalRuntime()],
             http=FakeHttpClient(),
             judge=FakeJudge(),
+            pack_defaults=False,
         )
     msgs = "\n".join(rec.getMessage() for rec in caplog.records)
     assert "Using FakeHttpClient" not in msgs
@@ -551,7 +552,7 @@ async def test_from_config_path_httpx_fallback_when_signoff_http_missing(
         "        enabled: true\n"
     )
     with caplog.at_level("WARNING", logger="signoff.harness"):
-        h = await Harness.from_config_path(cfg_path)
+        h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     assert isinstance(h.http, _Fake)
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "signoff-http is not installed" in messages
@@ -587,7 +588,7 @@ async def test_from_config_path_judge_provider_fake_uses_fake_client(
         "        enabled: true\n"
     )
     with caplog.at_level("INFO", logger="signoff.harness"):
-        h = await Harness.from_config_path(cfg_path)
+        h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     assert isinstance(h.judge, _FakeJudge)
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "Judge provider=fake" in messages
@@ -635,7 +636,7 @@ async def test_from_config_path_judge_fallback_when_signoff_judge_missing(
         "        enabled: true\n"
     )
     with caplog.at_level("WARNING", logger="signoff.harness"):
-        h = await Harness.from_config_path(cfg_path)
+        h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     assert isinstance(h.judge, _FakeJudge)
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "signoff-judge is not installed" in messages
@@ -666,7 +667,7 @@ async def test_from_config_path_skips_docker_runtime_when_not_requested(
         "      signoff-research.citation_smoke:\n"
         "        enabled: true\n"
     )
-    h = await Harness.from_config_path(cfg_path)
+    h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     assert set(h.runtimes.keys()) == {"local"}
 
 
@@ -697,7 +698,7 @@ async def test_from_config_path_builds_docker_runtime_when_requested(
         "      signoff-research.citation_smoke:\n"
         "        enabled: true\n"
     )
-    h = await Harness.from_config_path(cfg_path)
+    h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     assert set(h.runtimes.keys()) == {"local", "docker"}
 
 
@@ -740,7 +741,7 @@ async def test_from_config_path_docker_fallback_when_package_missing(
         "        enabled: true\n"
     )
     with caplog.at_level("WARNING", logger="signoff.harness"):
-        h = await Harness.from_config_path(cfg_path)
+        h = await Harness.from_config_path(cfg_path, pack_defaults=False)
     assert set(h.runtimes.keys()) == {"local"}
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "signoff-runtime-docker is not installed" in messages

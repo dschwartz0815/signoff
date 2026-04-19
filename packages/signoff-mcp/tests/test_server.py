@@ -407,5 +407,5 @@ async def test_from_config_path_builds_server(
 
     cfg_path = tmp_path / "signoff.yaml"
     cfg_path.write_text('protocol_version: "0.1"\npacks: []\ndeliverables: {}\n')
-    server = await SignoffMCPServer.from_config_path(cfg_path)
+    server = await SignoffMCPServer.from_config_path(cfg_path, pack_defaults=False)
     assert isinstance(server, SignoffMCPServer)

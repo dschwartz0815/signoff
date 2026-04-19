@@ -19,6 +19,9 @@ smoke_imports = "signoff_code.verifiers.smoke_imports:smoke_imports"
 tests_pass = "signoff_code.verifiers.tests_pass:tests_pass"
 types_check = "signoff_code.verifiers.types_check:types_check"
 
+[project.entry-points."signoff.pack_defaults"]
+signoff-code = "signoff_code.defaults:load"
+
 [project.urls]
 Homepage = "https://github.com/signoff/signoff"
 Repository = "https://github.com/signoff/signoff"
@@ -29,3 +32,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signoff_code"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/signoff_code/default_config.yaml" = "signoff_code/default_config.yaml"

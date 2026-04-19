@@ -1,0 +1,48 @@
+# Default harness config shipped with signoff-code.
+#
+# Published via the `signoff.pack_defaults` entry point (see
+# `pyproject.toml`); `signoff.config.load_config` merges it in
+# ahead of the user's YAML so operators only have to override what
+# they care about.
+#
+# Conventions:
+# - All five verifiers run by default against code_change
+#   deliverables.
+# - lint_clean and semantic_diff are WARNINGs, not BLOCKERs — a
+#   stylistic nit or a judge's disagreement shouldn't fail a
+#   deliverable. Operators promote either via severity_override.
+# - Runtime selection is intentionally NOT set here. Merging a
+#   global `runtime.default: docker` via pack defaults would force
+#   every harness start to spin up DockerRuntime (and pull the
+#   sandbox image) whether or not the caller verifies code_change
+#   deliverables — too aggressive for a pack default. The operator
+#   opts into docker sandboxing explicitly in their own yaml; see
+#   `examples/code-change.yaml` (Commit 6) for the recommended
+#   shape.
+
+protocol_version: "0.1"
+
+packs:
+  - signoff-code
+
+deliverables:
+  code_change:
+    verifiers:
+      signoff-code.smoke_imports:
+        enabled: true
+      signoff-code.tests_pass:
+        enabled: true
+      signoff-code.types_check:
+        enabled: true
+      signoff-code.lint_clean:
+        enabled: true
+        severity_override: warning
+      signoff-code.semantic_diff:
+        enabled: true
+        severity_override: warning
+
+budget:
+  # semantic_diff is the only cost here; the four deterministic
+  # verifiers are free. 10¢ per verification is plenty of headroom.
+  max_cost_usd: 0.10
+  max_duration_seconds: 600

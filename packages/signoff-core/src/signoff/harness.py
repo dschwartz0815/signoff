@@ -164,6 +164,7 @@ class Harness:
         http: HttpClient | None = None,
         judge: JudgeClient | None = None,
         clock: Callable[[], datetime] | None = None,
+        pack_defaults: bool = True,
     ) -> Harness:
         """Construct a :class:`Harness` from a YAML config file with
         sensible defaults for everything else.
@@ -194,7 +195,7 @@ class Harness:
         from signoff.testing import FakeHttpClient, FakeJudge  # lazy — test deps
 
         effective_registry = registry if registry is not None else Registry.discovered()
-        cfg = load_config(path=path)
+        cfg = load_config(path=path, pack_defaults=pack_defaults)
         validate_config(cfg, effective_registry)
 
         effective_runtimes: list[Runtime]
