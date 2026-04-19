@@ -11,7 +11,6 @@ other execs), and truncates stdout/stderr at configurable byte caps.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import time
 from collections.abc import Mapping
@@ -139,13 +138,19 @@ class DockerExec:
 
         runner = asyncio.create_task(asyncio.to_thread(_exec_start_demux))
         try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(runner, timeout=timeout)
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                asyncio.shield(runner), timeout=timeout
+            )
             exit_code = await self._inspect_exit_code(exec_id)
         except TimeoutError:
-            runner.cancel()
-            with contextlib.suppress(BaseException):
-                await runner
+            # ``asyncio.to_thread`` wraps a thread we can't actually
+            # cancel; blocking on the runner after a timeout would
+            # defeat the purpose of the timeout. We best-effort kill
+            # the container-side process (which closes the stream and
+            # lets the background thread exit naturally) and return
+            # the synthetic result without awaiting the runner.
             await self._kill_exec(exec_id)
+            runner.cancel()
             duration_ms = int((time.perf_counter() - started) * 1000)
             return ExecResult(
                 exit_code=-1,
