@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from signoff.runtime.base import (
     Runtime,
-    SignoffRuntimeError,
     RuntimeInfrastructureError,
     RuntimePolicy,
     RuntimePolicyViolationError,
     RuntimeResourceLimitError,
     RuntimeTimeoutError,
+    SignoffRuntimeError,
     VerifierMeta,
 )
 from signoff.runtime.local import LocalRuntime
@@ -23,11 +23,11 @@ from signoff.runtime.local import LocalRuntime
 __all__ = [
     "LocalRuntime",
     "Runtime",
-    "SignoffRuntimeError",
     "RuntimeInfrastructureError",
     "RuntimePolicy",
     "RuntimePolicyViolationError",
     "RuntimeResourceLimitError",
     "RuntimeTimeoutError",
+    "SignoffRuntimeError",
     "VerifierMeta",
 ]
