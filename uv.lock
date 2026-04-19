@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 members = [
     "signoff-code",
     "signoff-core",
+    "signoff-http",
     "signoff-mcp",
     "signoff-workspace",
 ]
@@ -1055,6 +1056,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "signoff-http"
+version = "0.0.1"
+source = { editable = "packages/signoff-http" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic-settings" },
+    { name = "signoff-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pydantic-settings", specifier = ">=2.3" },
+    { name = "signoff-core", editable = "packages/signoff-core" },
+]
+
+[[package]]
 name = "signoff-mcp"
 version = "0.0.1"
 source = { editable = "packages/signoff-mcp" }
@@ -1089,7 +1107,9 @@ dev = [
     { name = "ruff" },
     { name = "signoff-code" },
     { name = "signoff-core" },
+    { name = "signoff-http" },
     { name = "signoff-mcp" },
+    { name = "starlette" },
     { name = "types-pyyaml" },
 ]
 
@@ -1104,7 +1124,9 @@ dev = [
     { name = "ruff", specifier = ">=0.6" },
     { name = "signoff-code", editable = "packages/signoff-code" },
     { name = "signoff-core", editable = "packages/signoff-core" },
+    { name = "signoff-http", editable = "packages/signoff-http" },
     { name = "signoff-mcp", editable = "packages/signoff-mcp" },
+    { name = "starlette", specifier = ">=0.37" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
