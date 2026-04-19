@@ -328,31 +328,42 @@ def test_version_endpoint_returns_versions(http_app: Any) -> None:
     assert "mcp_server_version" in payload
 
 
-def test_auth_middleware_allows_unauth_paths_always(
-    http_app: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("SIGNOFF_MCP_AUTH_TOKEN", "hunter2")
+def _build_http_app_with_token(token: str | None) -> Any:
+    """Build a fresh HTTP app whose :class:`MCPServerConfig` carries
+    ``auth_token=token``. The auth middleware reads the token from
+    the server's settings at construction time (no longer from
+    ``os.environ`` at request time), so tests must set the token
+    before the server is built.
+    """
+    from signoff_mcp.config import MCPServerConfig
+    from signoff_mcp.server import _build_http_app
+
+    r = Registry()
+    r.register(_make_pass_verifier())
+    harness = _empty_harness(r)
+    server = SignoffMCPServer(harness, settings=MCPServerConfig(auth_token=token))
+    return _build_http_app(server, server.build_app())
+
+
+def test_auth_middleware_allows_unauth_paths_always() -> None:
     from starlette.testclient import TestClient
 
-    client = TestClient(http_app)
+    app = _build_http_app_with_token("hunter2")
+    client = TestClient(app)
     assert client.get("/health").status_code == 200
     assert client.get("/version").status_code == 200
 
 
-def test_auth_middleware_rejects_missing_token_on_protected_path(
-    http_app: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("SIGNOFF_MCP_AUTH_TOKEN", "hunter2")
+def test_auth_middleware_rejects_missing_token_on_protected_path() -> None:
     from starlette.testclient import TestClient
 
-    client = TestClient(http_app)
+    app = _build_http_app_with_token("hunter2")
+    client = TestClient(app)
     resp = client.get("/sse")
     assert resp.status_code == 401
 
 
-def test_auth_middleware_accepts_matching_bearer(
-    http_app: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_auth_middleware_accepts_matching_bearer() -> None:
     """Bearer-token match lets the request through to the handler.
 
     We exercise this via /health with an intentionally required token,
@@ -362,10 +373,10 @@ def test_auth_middleware_accepts_matching_bearer(
     case). So with the token required and no header, /sse returns 401;
     with the correct header, any non-stream endpoint resolves cleanly.
     """
-    monkeypatch.setenv("SIGNOFF_MCP_AUTH_TOKEN", "hunter2")
     from starlette.testclient import TestClient
 
-    client = TestClient(http_app)
+    app = _build_http_app_with_token("hunter2")
+    client = TestClient(app)
     # Rejected without header:
     assert client.post("/messages/?session_id=x").status_code == 401
     # Accepted with header (handler returns 400 because no session —

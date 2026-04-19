@@ -13,6 +13,9 @@ services:
     container_name: signoff-mcp
     init: true
     environment:
+      # Log level for the Signoff + uvicorn + mcp logger tree. Accepts
+      # DEBUG / INFO / WARNING / ERROR / CRITICAL.
+      SIGNOFF_MCP_LOG_LEVEL: INFO
       # To require a Bearer token on all non-/health requests, set this
       # to a strong secret and re-launch (see docs/mcp-integration.md).
       # SIGNOFF_MCP_AUTH_TOKEN: change-me

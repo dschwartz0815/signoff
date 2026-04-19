@@ -116,6 +116,15 @@ This is enough to drive an agent through a retry loop without any additional sca
 
 ---
 
+## Configuration
+
+MCP-server settings live in the `SIGNOFF_MCP_*` env namespace (parallel to the harness's `SIGNOFF_CORE_*` namespace — see [`docs/configuration.md`](./configuration.md#environment-variable-namespaces)).
+
+| Env var | Default | Effect |
+|---------|---------|--------|
+| `SIGNOFF_MCP_LOG_LEVEL` | `INFO` | Log level for the `signoff` / `uvicorn` / `mcp` logger tree. Accepts `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. Setting `DEBUG` gets you per-handler entry/exit, each tool call's arguments snapshot, and the full Uvicorn access log. |
+| `SIGNOFF_MCP_AUTH_TOKEN` | unset | Bearer token required on every non-`/health`, non-`/version` request when set. Unset = no auth enforcement. |
+
 ## Auth
 
 Phase 0 ships without auth by default — it's a developer tool. Two options:

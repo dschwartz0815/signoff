@@ -67,7 +67,7 @@ The full Pydantic model definitions live in [`signoff.config`](../packages/signo
 | 1 | Built-in defaults | Pydantic model defaults in `signoff.config` |
 | 2 | Pack-declared defaults | Entry-point group `signoff.pack_defaults` — normative per protocol §6.2. Each pack's entry point target resolves to either a `() -> Mapping` callable or a module-level mapping. |
 | 3 | User-supplied YAML | The `path=` argument to `load_config()` |
-| 4 | Environment variables | `SIGNOFF_*` — see below |
+| 4 | Environment variables | `SIGNOFF_CORE_*` — see "Environment variable namespaces" below |
 | 5 | Per-request overrides | The `request_overrides=` argument, deep-merged on top |
 
 ### A pack publishing defaults
@@ -102,7 +102,7 @@ DEFAULTS = {
 Built-in:      budget.max_cost_usd = 0.50
 Pack default:  budget.max_cost_usd = 0.25   (signoff-research sets this)
 User YAML:     budget.max_cost_usd = 1.00
-Env:           SIGNOFF_BUDGET__MAX_COST_USD=2.00
+Env:           SIGNOFF_CORE_BUDGET__MAX_COST_USD=2.00
 Request:       request_overrides={"budget": {"max_cost_usd": 5.00}}
 
 Result:        5.00
@@ -117,17 +117,32 @@ Result:        5.00
 
 ---
 
-## Environment variable overrides
+## Environment variable namespaces
 
-`SIGNOFF_` is the prefix. Nesting uses double underscores, matching the pydantic-settings convention.
+Each Signoff package owns its own env-var prefix so vars that belong to one package don't collide with another's schema.
+
+| Prefix | Owner | Purpose |
+|--------|-------|---------|
+| `SIGNOFF_CORE_` | [`signoff-core`](../packages/signoff-core) | Harness configuration — overrides any field on `HarnessConfig`. Documented below. |
+| `SIGNOFF_MCP_` | [`signoff-mcp`](../packages/signoff-mcp) | MCP server settings: log level, Bearer auth token. Documented in [`docs/mcp-integration.md`](./mcp-integration.md). |
+| `SIGNOFF_HTTP_` | [`signoff-core`](../packages/signoff-core) *(reserved for PR 7)* | Real HTTP client — timeouts, rate limits, retries. |
+| `SIGNOFF_JUDGE_` | [`signoff-core`](../packages/signoff-core) *(reserved for PR 8)* | Real LLM judge client — provider, model, API key. |
+
+`SIGNOFF_SAMPLING_SEED` is a separate escape hatch: it's a test/reproducibility knob, not package config, and is read directly by the harness.
+
+Any env var that starts with `SIGNOFF_` but doesn't match one of the table's prefixes is **ignored** by every loader — not silently consumed by the harness, not errored on. That's deliberate: `SIGNOFF_MCP_AUTH_TOKEN` belongs to the MCP server and must not trip `HarnessConfig(extra="forbid")`.
+
+### `SIGNOFF_CORE_*` — harness config overrides
+
+`SIGNOFF_CORE_` is the prefix. Nesting uses double underscores.
 
 | Env var | Maps to |
 |---------|---------|
-| `SIGNOFF_BUDGET__MAX_COST_USD=1.00` | `budget.max_cost_usd` |
-| `SIGNOFF_BUDGET__GLOBAL_CONCURRENCY=8` | `budget.global_concurrency` |
-| `SIGNOFF_RUNTIME__DEFAULT=docker` | `runtime.default` |
-| `SIGNOFF_JUDGE__PROVIDER=fake` | `judge.provider` |
-| `SIGNOFF_RETRIES__DEFAULT_BUDGET=0` | `retries.default_budget` |
+| `SIGNOFF_CORE_BUDGET__MAX_COST_USD=1.00` | `budget.max_cost_usd` |
+| `SIGNOFF_CORE_BUDGET__GLOBAL_CONCURRENCY=8` | `budget.global_concurrency` |
+| `SIGNOFF_CORE_RUNTIME__DEFAULT=docker` | `runtime.default` |
+| `SIGNOFF_CORE_JUDGE__PROVIDER=fake` | `judge.provider` |
+| `SIGNOFF_CORE_RETRIES__DEFAULT_BUDGET=0` | `retries.default_budget` |
 
 Values are strings on the env boundary; Pydantic coerces them to the declared types during validation.
 

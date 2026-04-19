@@ -155,15 +155,15 @@ def test_layers_merge_in_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_env_overrides_applied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SIGNOFF_BUDGET__MAX_COST_USD", "2.5")
-    monkeypatch.setenv("SIGNOFF_BUDGET__GLOBAL_CONCURRENCY", "4")
+    monkeypatch.setenv("SIGNOFF_CORE_BUDGET__MAX_COST_USD", "2.5")
+    monkeypatch.setenv("SIGNOFF_CORE_BUDGET__GLOBAL_CONCURRENCY", "4")
     cfg = load_config(path=None, pack_defaults=False, env_overrides=True)
     assert cfg.budget.max_cost_usd == 2.5
     assert cfg.budget.global_concurrency == 4
 
 
 def test_request_overrides_wins_over_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SIGNOFF_BUDGET__MAX_COST_USD", "2.5")
+    monkeypatch.setenv("SIGNOFF_CORE_BUDGET__MAX_COST_USD", "2.5")
     cfg = load_config(
         path=None,
         pack_defaults=False,
@@ -429,9 +429,33 @@ def test_pack_defaults_non_mapping_is_logged_and_skipped(
 
 
 def test_env_bare_prefix_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
-    # SIGNOFF_ alone has no remaining path; loader must skip, not crash.
-    monkeypatch.setenv("SIGNOFF_", "x")
+    # SIGNOFF_CORE_ alone has no remaining path; loader must skip, not crash.
+    monkeypatch.setenv("SIGNOFF_CORE_", "x")
     load_config(path=None, pack_defaults=False, env_overrides=True)
+
+
+def test_sibling_namespace_env_vars_are_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Any env var that starts with ``SIGNOFF_`` but not
+    ``SIGNOFF_CORE_`` belongs to a sibling package (MCP, HTTP, judge).
+    The harness loader must not consume it — otherwise we re-introduce
+    the ``SIGNOFF_LOG_LEVEL`` collision that tripped
+    ``HarnessConfig(extra="forbid")`` in PR 6.
+    """
+    monkeypatch.setenv("SIGNOFF_MCP_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("SIGNOFF_MCP_AUTH_TOKEN", "hunter2")
+    monkeypatch.setenv("SIGNOFF_HTTP_TIMEOUT_SECONDS", "30")  # reserved (PR 7)
+    monkeypatch.setenv("SIGNOFF_JUDGE_PROVIDER", "anthropic")  # reserved (PR 8)
+    # Also set a valid one to prove the loader is still live.
+    monkeypatch.setenv("SIGNOFF_CORE_BUDGET__MAX_COST_USD", "7.5")
+    cfg = load_config(path=None, pack_defaults=False, env_overrides=True)
+    # Sibling vars did not fall into HarnessConfig (which has extra=forbid,
+    # so a collision would have raised):
+    assert cfg.budget.max_cost_usd == 7.5
+    # And nothing from the sibling namespaces leaked onto the model.
+    assert "log_level" not in cfg.model_dump()
+    assert "auth_token" not in cfg.model_dump()
 
 
 def test_env_scalar_collision_is_logged(
@@ -439,8 +463,8 @@ def test_env_scalar_collision_is_logged(
 ) -> None:
     # Setting a scalar (budget.max_cost_usd) then trying to nest under it
     # (budget.max_cost_usd.x) should log and ignore the nested attempt.
-    monkeypatch.setenv("SIGNOFF_BUDGET__MAX_COST_USD", "1")
-    monkeypatch.setenv("SIGNOFF_BUDGET__MAX_COST_USD__X", "2")
+    monkeypatch.setenv("SIGNOFF_CORE_BUDGET__MAX_COST_USD", "1")
+    monkeypatch.setenv("SIGNOFF_CORE_BUDGET__MAX_COST_USD__X", "2")
     with caplog.at_level("WARNING", logger="signoff.config"):
         load_config(path=None, pack_defaults=False, env_overrides=True)
     # Collision detection relies on iteration order; env vars are dict-ordered

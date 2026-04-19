@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 import time
 from pathlib import Path
@@ -36,6 +35,7 @@ from signoff_mcp._tools import (
     TOOL_REQUEST_SIGNOFF,
     get_verdict_message,
 )
+from signoff_mcp.config import MCPServerConfig
 
 __all__ = ["SignoffMCPServer"]
 
@@ -60,20 +60,40 @@ class SignoffMCPServer:
     and ``get_verdict`` tools.
     """
 
-    def __init__(self, harness: Harness) -> None:
+    def __init__(
+        self,
+        harness: Harness,
+        *,
+        settings: MCPServerConfig | None = None,
+    ) -> None:
         self.harness = harness
+        # Read SIGNOFF_MCP_* env vars once at construction. Tests can
+        # pass a pre-built MCPServerConfig to override.
+        self.settings = settings if settings is not None else MCPServerConfig()
 
     # ------------------------------------------------------------------
     # Factories
     # ------------------------------------------------------------------
 
     @classmethod
-    async def from_config_path(cls, path: Path | str, **harness_kwargs: Any) -> SignoffMCPServer:
-        """Build the harness from ``path`` then wrap it. ``**harness_kwargs``
-        are forwarded to :meth:`Harness.from_config_path`."""
+    async def from_config_path(
+        cls,
+        path: Path | str,
+        *,
+        settings: MCPServerConfig | None = None,
+        **harness_kwargs: Any,
+    ) -> SignoffMCPServer:
+        """Build the harness from ``path`` then wrap it.
+
+        ``**harness_kwargs`` are forwarded to
+        :meth:`Harness.from_config_path`. ``settings`` overrides the
+        default :class:`MCPServerConfig` (useful in tests); when
+        ``None`` the server loads its own from ``SIGNOFF_MCP_*`` env
+        vars.
+        """
         harness = await Harness.from_config_path(path, **harness_kwargs)
         await harness.prepare()
-        return cls(harness)
+        return cls(harness, settings=settings)
 
     # ------------------------------------------------------------------
     # App wiring
@@ -243,8 +263,9 @@ class SignoffMCPServer:
 
     async def serve_stdio(self) -> None:
         """Run the server over stdio. Routes ``signoff`` loggers to
-        stderr so stdout stays reserved for MCP protocol messages."""
-        setup_logging(stream=sys.stderr)
+        stderr so stdout stays reserved for MCP protocol messages.
+        Logger level reads from ``SIGNOFF_MCP_LOG_LEVEL``."""
+        setup_logging(level=self.settings.log_level, stream=sys.stderr)
         app = self.build_app()
         init_options = app.create_initialization_options(NotificationOptions())
         async with stdio_server() as (read, write):
@@ -272,7 +293,7 @@ class SignoffMCPServer:
         """
         import uvicorn
 
-        setup_logging(stream=sys.stderr)
+        setup_logging(level=self.settings.log_level, stream=sys.stderr)
         _route_external_loggers_through_signoff()
         app = self.build_app()
         starlette_app = _build_http_app(self, app)
@@ -435,7 +456,7 @@ def _build_http_app(signoff_server: SignoffMCPServer, mcp_app: Server[Any, Any])
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["*"],
         ),
-        Middleware(_BearerAuthMiddleware),
+        Middleware(_BearerAuthMiddleware, token=signoff_server.settings.auth_token),
     ]
 
     routes = [
@@ -448,20 +469,26 @@ def _build_http_app(signoff_server: SignoffMCPServer, mcp_app: Server[Any, Any])
 
 
 class _BearerAuthMiddleware:
-    """Enforce ``SIGNOFF_MCP_AUTH_TOKEN`` if set. No-op otherwise.
+    """Enforce a Bearer token if the server was started with one.
 
     Phase 0 deliberately ships without auth by default; this middleware
     exists so operators who expose the server over a network can opt
     into a token-based guard without standing up a full identity stack.
+
+    The token is provided explicitly (from
+    :attr:`MCPServerConfig.auth_token`, which reads
+    ``SIGNOFF_MCP_AUTH_TOKEN``) so the middleware doesn't reach into
+    ``os.environ`` at request time.
     """
 
     _UNAUTH_PATHS = frozenset({"/health", "/version"})
 
-    def __init__(self, app: Any) -> None:
+    def __init__(self, app: Any, *, token: str | None) -> None:
         self.app = app
+        self._token = token
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        token = os.environ.get("SIGNOFF_MCP_AUTH_TOKEN")
+        token = self._token
         if scope.get("type") != "http" or not token:
             await self.app(scope, receive, send)
             return
@@ -497,10 +524,12 @@ async def serve(
     Logging is configured eagerly via :func:`signoff.setup_logging` so
     the INFO lines emitted during :meth:`Harness.from_config_path`
     (e.g. "Using FakeHttpClient") land in stderr instead of being
-    dropped. The per-transport methods call ``setup_logging`` again;
-    it's idempotent.
+    dropped. Reads ``SIGNOFF_MCP_LOG_LEVEL`` (via
+    :class:`MCPServerConfig`). The per-transport methods call
+    ``setup_logging`` again with the same level; it's idempotent.
     """
-    setup_logging(stream=sys.stderr)
+    settings = MCPServerConfig()
+    setup_logging(level=settings.log_level, stream=sys.stderr)
     server = await SignoffMCPServer.from_config_path(config_path)
     if transport == "stdio":
         await server.serve_stdio()

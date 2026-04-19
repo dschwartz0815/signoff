@@ -9,8 +9,10 @@ Resolution order (later wins):
     1. Built-in defaults (the model class defaults)
     2. Pack-declared defaults (entry-point group ``signoff.pack_defaults``)
     3. User-supplied YAML at ``path``
-    4. Environment variables prefixed ``SIGNOFF_`` (double-underscore
-       nesting, via pydantic-settings)
+    4. Environment variables prefixed ``SIGNOFF_CORE_`` (double-underscore
+       nesting). Sibling packages own parallel namespaces
+       (``SIGNOFF_MCP_``, ``SIGNOFF_HTTP_``, ``SIGNOFF_JUDGE_``); they're
+       ignored here.
     5. Per-request overrides passed to the harness
 
 Deep-merge semantics:
@@ -37,6 +39,7 @@ from signoff.registry import Registry
 from signoff.runtime.base import RuntimePolicy
 
 __all__ = [
+    "ENV_PREFIX",
     "PACK_DEFAULTS_ENTRY_POINT_GROUP",
     "BudgetConfig",
     "ConfigurationError",
@@ -217,21 +220,33 @@ def _pack_defaults() -> dict[str, Any]:
     return merged
 
 
-def _env_overrides() -> dict[str, Any]:
-    """Translate ``SIGNOFF_*`` env vars into a nested dict.
+#: Env-var prefix for harness (signoff-core) config overrides.
+#: Sibling packages own parallel namespaces — ``SIGNOFF_MCP_*`` for the
+#: MCP server, and ``SIGNOFF_HTTP_*`` / ``SIGNOFF_JUDGE_*`` reserved for
+#: the HTTP and judge client packages (PR 7 / PR 8). Anything outside
+#: ``SIGNOFF_CORE_*`` is ignored by this loader.
+ENV_PREFIX = "SIGNOFF_CORE_"
 
-    ``SIGNOFF_BUDGET__MAX_COST_USD=1.0`` → ``{"budget": {"max_cost_usd": "1.0"}}``.
-    Values stay strings; Pydantic coerces them when the merged dict is
-    validated.
+
+def _env_overrides() -> dict[str, Any]:
+    """Translate :data:`ENV_PREFIX`-scoped env vars into a nested dict.
+
+    ``SIGNOFF_CORE_BUDGET__MAX_COST_USD=1.0`` →
+    ``{"budget": {"max_cost_usd": "1.0"}}``. Values stay strings;
+    Pydantic coerces them when the merged dict is validated.
+
+    Env vars that don't carry the ``SIGNOFF_CORE_`` prefix are ignored,
+    even if they're prefixed ``SIGNOFF_`` — that bare prefix belongs to
+    sibling packages (``SIGNOFF_MCP_*``, etc.) and must not be
+    consumed here.
     """
     import os
 
     out: dict[str, Any] = {}
-    prefix = "SIGNOFF_"
     for raw_key, raw_val in os.environ.items():
-        if not raw_key.startswith(prefix):
+        if not raw_key.startswith(ENV_PREFIX):
             continue
-        path = raw_key[len(prefix) :].lower().split("__")
+        path = raw_key[len(ENV_PREFIX) :].lower().split("__")
         if not path or not path[0]:
             continue
         # Navigate / build the nested dict.
