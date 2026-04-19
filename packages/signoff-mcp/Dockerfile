@@ -19,11 +19,14 @@ RUN pip install --no-cache-dir uv==0.11.*
 COPY pyproject.toml uv.lock* ./
 COPY packages/signoff-core ./packages/signoff-core
 COPY packages/signoff-mcp ./packages/signoff-mcp
+# signoff-http is bundled so the MCP server can route
+# Harness.from_config_path(provider="httpx") without an extra install.
+COPY packages/signoff-http ./packages/signoff-http
 
 # --no-editable installs workspace members as real packages. Without it
 # uv writes .pth files that point to /app/..., which survives the copy.
-RUN uv sync --frozen --no-dev --no-editable --package signoff-mcp \
- || uv sync --no-dev --no-editable --package signoff-mcp
+RUN uv sync --frozen --no-dev --no-editable --package signoff-mcp --package signoff-http \
+ || uv sync --no-dev --no-editable --package signoff-mcp --package signoff-http
 
 # ---- runtime ----
 FROM python:3.12-slim-bookworm AS runtime

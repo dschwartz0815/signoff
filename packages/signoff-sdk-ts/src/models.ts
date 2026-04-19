@@ -8,6 +8,15 @@
 // The Python side (packages/signoff-core/src/signoff/models.py) is the
 // source of truth; a parity test asserts that the JSON schemas produced
 // there agree structurally with what these Zod schemas accept.
+//
+// Intentionally NOT mirrored here:
+//
+//   FetchResult — it describes the outcome of an in-process
+//   HttpClient.get/head call inside the verifier harness. It is not
+//   part of the request/response wire format that crosses the hosted
+//   API boundary, so the TS SDK has no reason to know about it.
+//   (Python home: signoff.context.FetchResult; production impl in
+//   signoff_http.HttpxClient.)
 
 import { z } from 'zod';
 

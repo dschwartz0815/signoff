@@ -26,6 +26,14 @@ budget:
 runtime:
   default: local
 
+# Phase 0 smoke config uses the in-memory FakeHttpClient so the minimal
+# stack has no outbound dependencies. Switch to `provider: httpx` once
+# you have real verifiers that need to fetch URLs; tuning
+# (timeouts / retries / robots) flows through SIGNOFF_HTTP_* env vars,
+# see docs/http-client.md.
+http:
+  provider: fake
+
 judge:
   provider: fake
   model: claude-haiku-4-5
