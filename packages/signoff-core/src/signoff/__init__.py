@@ -17,6 +17,8 @@ PRs.
 
 from __future__ import annotations
 
+__version__ = "0.0.1"
+
 from signoff.config import (
     PACK_DEFAULTS_ENTRY_POINT_GROUP,
     BudgetConfig,
@@ -41,6 +43,7 @@ from signoff.context import (
     VerifierContext,
     make_context,
 )
+from signoff.harness import Harness
 from signoff.models import (
     DELIVERABLE_CLAIM_ID,
     ID_PATTERN,
@@ -69,8 +72,6 @@ from signoff.runtime import (
 )
 from signoff.verifier import RegisteredVerifier, verifier
 
-__version__ = "0.0.1"
-
 __all__ = [
     "DELIVERABLE_CLAIM_ID",
     "ENTRY_POINT_GROUP",
@@ -87,6 +88,7 @@ __all__ = [
     "ExecResult",
     "FeedbackPacket",
     "FetchResult",
+    "Harness",
     "HarnessConfig",
     "HttpClient",
     "IdStr",
