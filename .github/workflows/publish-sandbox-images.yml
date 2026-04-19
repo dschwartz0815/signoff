@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "packages/signoff-runtime-docker/images/**"
+      - "packages/signoff-code/Dockerfile"
+      - "packages/signoff-code/.dockerignore"
       - ".github/workflows/publish-sandbox-images.yml"
   workflow_dispatch:
 
@@ -15,11 +17,20 @@ permissions:
   id-token: write
 
 jobs:
-  generic-sandbox:
+  build:
+    strategy:
+      # A trivy CRITICAL in one image shouldn't block the other's
+      # publish — they're independent artifacts.
+      fail-fast: false
+      matrix:
+        include:
+          - name: generic-sandbox
+            image: ghcr.io/signoff/generic-sandbox
+            context: packages/signoff-runtime-docker/images/generic-sandbox
+          - name: code-sandbox
+            image: ghcr.io/signoff/code-sandbox
+            context: packages/signoff-code
     runs-on: ubuntu-latest
-    env:
-      IMAGE: ghcr.io/signoff/generic-sandbox
-      CONTEXT: packages/signoff-runtime-docker/images/generic-sandbox
     steps:
       - uses: actions/checkout@v4
 
@@ -39,15 +50,15 @@ jobs:
           short_sha=$(git rev-parse --short=12 HEAD)
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "tags<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$IMAGE:$short_sha" >> "$GITHUB_OUTPUT"
-          echo "$IMAGE:latest" >> "$GITHUB_OUTPUT"
+          echo "${{ matrix.image }}:$short_sha" >> "$GITHUB_OUTPUT"
+          echo "${{ matrix.image }}:latest" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and push ${{ matrix.name }}
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.CONTEXT }}
+          context: ${{ matrix.context }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           provenance: true
@@ -59,15 +70,14 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          cosign sign --yes "$IMAGE@${{ steps.build.outputs.digest }}"
+          cosign sign --yes "${{ matrix.image }}@${{ steps.build.outputs.digest }}"
 
       - name: Install trivy
         uses: aquasecurity/setup-trivy@v0
-        # Any version is fine — we only need the CLI.
         with:
           version: latest
 
       - name: Scan for CRITICAL vulns
         run: |
           trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed \
-            "$IMAGE@${{ steps.build.outputs.digest }}"
+            "${{ matrix.image }}@${{ steps.build.outputs.digest }}"
