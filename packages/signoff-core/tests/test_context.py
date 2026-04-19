@@ -272,9 +272,7 @@ async def test_fake_judge_without_default_raises_when_drained() -> None:
 
 def test_judge_result_optional_fields_default() -> None:
     """New fields are optional so existing callers compile unchanged."""
-    r = JudgeResult(
-        label="supported", explanation="ok", excerpt="x", cost_usd=0.01
-    )
+    r = JudgeResult(label="supported", explanation="ok", excerpt="x", cost_usd=0.01)
     assert r.confidence == 1.0
     assert r.model == ""
     assert r.prompt_version == ""
@@ -314,9 +312,7 @@ async def test_fake_judge_check_policy_compliance_records_call() -> None:
 
 @pytest.mark.asyncio
 async def test_fake_judge_classify_records_labels() -> None:
-    default = JudgeResult(
-        label="news", explanation="newspaper source", excerpt=None, cost_usd=0.0
-    )
+    default = JudgeResult(label="news", explanation="newspaper source", excerpt=None, cost_usd=0.0)
     j = FakeJudge(default=default)
     result = await j.classify(
         text="Breaking: …",

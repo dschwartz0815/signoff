@@ -10,6 +10,7 @@ members = [
     "packages/signoff-mcp",
     "packages/signoff-code",
     "packages/signoff-http",
+    "packages/signoff-judge",
 ]
 
 [tool.uv.sources]
@@ -17,6 +18,7 @@ signoff-core = { workspace = true }
 signoff-mcp = { workspace = true }
 signoff-code = { workspace = true }
 signoff-http = { workspace = true }
+signoff-judge = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -30,6 +32,7 @@ dev = [
     "signoff-mcp",
     "signoff-code",
     "signoff-http",
+    "signoff-judge",
     "starlette>=0.37",
 ]
 
