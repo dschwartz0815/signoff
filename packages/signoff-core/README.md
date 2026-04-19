@@ -4,6 +4,21 @@ Core engine for [Signoff](../../README.md) — a verification layer for AI agent
 
 **Source of truth for the types exported here:** [`docs/protocol.md`](../../docs/protocol.md) §3 and [`CLAUDE.md`](../../CLAUDE.md) §8. When this code disagrees with the protocol doc, the doc wins and the code is a bug.
 
+## Demo
+
+```python
+from signoff import Claim, Deliverable, Harness
+
+deliverable = Deliverable(id="dlv_1", kind="research_report", content={"body": "..."})
+claims = [Claim(id="clm_1", text="…", kind="citation", evidence={"url": "…"})]
+
+async with await Harness.from_config_path("harness.yaml") as h:
+    verdict = await h.verify(deliverable, claims)
+    print(verdict.model_dump_json(indent=2))
+```
+
+See [`docs/harness.md`](../../docs/harness.md) for the advanced `Harness(...)` form and the full lifecycle diagram.
+
 ## Public API
 
 ### Data models (`signoff.models`)

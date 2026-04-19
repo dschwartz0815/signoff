@@ -326,6 +326,86 @@ async def test_demo_snippet_from_readme(
 
 
 # ---------------------------------------------------------------------------
+# from_config_path: defaults vs overrides
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_with_no_overrides(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The headline API — ``await Harness.from_config_path("harness.yaml")``
+    with no other arguments — must work and must emit INFO logs for
+    the Phase 0 fake HTTP / judge defaults."""
+    from signoff.registry import default_registry
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+
+    d = Deliverable(id="dlv_1", kind="research_report", content=None)
+    c = [Claim(id="clm_a", text="x", kind="citation", evidence={"url": "u"})]
+
+    with caplog.at_level("INFO", logger="signoff.harness"):
+        async with await Harness.from_config_path(cfg_path) as h:
+            verdict = await h.verify(d, c)
+
+    assert verdict.passed is True
+    messages = "\n".join(r.getMessage() for r in caplog.records)
+    assert "FakeHttpClient" in messages
+    assert "FakeJudge" in messages
+
+
+@pytest.mark.asyncio
+async def test_from_config_path_overrides_suppress_info_logs(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Passing real http/judge suppresses the Phase 0 INFO logs."""
+    r = Registry()
+    r.register(_pass_cite())
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+
+    with caplog.at_level("INFO", logger="signoff.harness"):
+        h = await Harness.from_config_path(
+            cfg_path,
+            registry=r,
+            runtimes=[LocalRuntime()],
+            http=FakeHttpClient(),
+            judge=FakeJudge(),
+        )
+    msgs = "\n".join(rec.getMessage() for rec in caplog.records)
+    assert "Using FakeHttpClient" not in msgs
+    assert "Using FakeJudge" not in msgs
+    assert h.registry is r
+
+
+# ---------------------------------------------------------------------------
 # Integration: requires dependencies across tiers
 # ---------------------------------------------------------------------------
 

@@ -9,29 +9,50 @@ Normative contract: [`docs/protocol.md`](./protocol.md) §5. Source: [`signoff.h
 ## Demo
 
 ```python
-from signoff import Claim, Deliverable, Harness, LocalRuntime, Registry, load_config
-from signoff.testing import FakeHttpClient, FakeJudge
-
-registry = Registry()
-registry.discover()                             # finds installed packs
-
-config = load_config(path="examples/minimal.yaml")
+from signoff import Claim, Deliverable, Harness
 
 deliverable = Deliverable(id="dlv_1", kind="research_report", content={"body": "..."})
 claims = [Claim(id="clm_1", text="…", kind="citation", evidence={"url": "…"})]
 
-async with Harness(
-    config=config,
-    registry=registry,
-    runtimes={"local": LocalRuntime()},
-    http=FakeHttpClient(),                      # real HttpClient arrives later
-    judge=FakeJudge(),
-) as h:
+async with await Harness.from_config_path("harness.yaml") as h:
     verdict = await h.verify(deliverable, claims)
     print(verdict.model_dump_json(indent=2))
 ```
 
-The convenience `Harness.from_config_path("…")` wraps all of the above with sensible defaults.
+`from_config_path` loads the YAML, discovers every installed pack's verifiers, provisions a `LocalRuntime`, and uses Phase 0 `FakeHttpClient` / `FakeJudge` placeholders. An INFO log fires the first time either fake is used so production deployments notice they need to wire up real clients.
+
+### When to use which constructor
+
+| Situation | Constructor |
+|-----------|-------------|
+| You have a YAML config and want a working harness | `await Harness.from_config_path(path)` |
+| You need to inject a custom HttpClient, JudgeClient, Registry, or Runtime set | `await Harness.from_config_path(path, http=…, judge=…, registry=…, runtimes=[…])` |
+| You built everything programmatically (tests, bespoke wiring) | `Harness(config=…, registry=…, runtimes=[…], http=…, judge=…)` |
+
+The direct `Harness(...)` constructor is the advanced path. Prefer `from_config_path` unless you already have a `HarnessConfig` in hand.
+
+### Advanced usage
+
+Full dependency injection — useful in tests or bespoke deployments:
+
+```python
+from signoff import (
+    Claim, Deliverable, Harness, LocalRuntime, Registry, load_config,
+)
+from signoff.testing import FakeHttpClient, FakeJudge
+
+registry = Registry.discovered()
+config = load_config(path="examples/minimal.yaml")
+
+async with Harness(
+    config=config,
+    registry=registry,
+    runtimes=[LocalRuntime()],
+    http=FakeHttpClient(),
+    judge=FakeJudge(),
+) as h:
+    verdict = await h.verify(deliverable, claims)
+```
 
 ---
 

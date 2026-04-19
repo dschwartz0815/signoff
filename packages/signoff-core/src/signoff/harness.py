@@ -46,7 +46,7 @@ from signoff.models import (
     VerifierResult,
     WarningEntry,
 )
-from signoff.registry import Registry, default_registry
+from signoff.registry import Registry
 from signoff.runtime.base import Runtime, RuntimePolicy, VerifierMeta
 from signoff.runtime.local import LocalRuntime
 from signoff.verifier import RegisteredVerifier
@@ -159,26 +159,67 @@ class Harness:
         cls,
         path: Path | str,
         *,
+        registry: Registry | None = None,
+        runtimes: list[Runtime] | None = None,
         http: HttpClient | None = None,
         judge: JudgeClient | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> Harness:
-        """Convenience factory: loads config, uses ``default_registry`` and
-        a :class:`LocalRuntime`, and substitutes fakes when ``http`` /
-        ``judge`` are not provided.
+        """Construct a :class:`Harness` from a YAML config file with
+        sensible defaults for everything else.
+
+        This is the headline entry point. Override only what you need:
+
+            async with await Harness.from_config_path("harness.yaml") as h:
+                verdict = await h.verify(deliverable, claims)
+
+        Defaults, by argument:
+
+        - ``registry``  →  :meth:`Registry.discovered` (loads every
+          installed pack via the ``signoff.verifiers`` entry point
+          group per protocol §4.2).
+        - ``runtimes`` →  ``[LocalRuntime()]``.
+        - ``http``     →  :class:`signoff.testing.FakeHttpClient` — a
+          Phase 0 placeholder. Swapped for a real httpx-backed
+          implementation in a later PR; a single INFO log line fires
+          so production deployments notice they're on the fake.
+        - ``judge``    →  :class:`signoff.testing.FakeJudge` — same
+          Phase 0 story as ``http``.
+        - ``clock``    →  wall-clock UTC.
 
         Raises :class:`~signoff.config.ConfigurationError` on bad config.
         """
+        # TODO(phase1-http): replace FakeHttpClient with
+        # signoff.http.AsyncHttpxClient when that lands. Same for judge
+        # once signoff.judge.AnthropicJudge arrives.
         from signoff.testing import FakeHttpClient, FakeJudge  # lazy — test deps
 
+        effective_registry = registry if registry is not None else Registry.discovered()
         cfg = load_config(path=path)
-        validate_config(cfg, default_registry)
-        return cls(
-            config=cfg,
-            registry=default_registry,
-            runtimes=[LocalRuntime()],
-            http=http if http is not None else FakeHttpClient(),
-            judge=judge if judge is not None else FakeJudge(),
-        )
+        validate_config(cfg, effective_registry)
+
+        effective_runtimes: list[Runtime] = runtimes if runtimes is not None else [LocalRuntime()]
+        if http is None:
+            _logger.info(
+                "Using FakeHttpClient — no real HTTP client configured. "
+                "See docs/configuration.md for production setup."
+            )
+        if judge is None:
+            _logger.info(
+                "Using FakeJudge — no real LLM judge configured. "
+                "See docs/configuration.md for production setup."
+            )
+
+        kwargs: dict[str, Any] = {
+            "config": cfg,
+            "registry": effective_registry,
+            "runtimes": effective_runtimes,
+            "http": http if http is not None else FakeHttpClient(),
+            "judge": judge if judge is not None else FakeJudge(),
+        }
+        if clock is not None:
+            kwargs["clock"] = clock
+        return cls(**kwargs)
 
     async def prepare(self) -> None:
         """Call ``runtime.prepare()`` for every registered verifier. Idempotent."""

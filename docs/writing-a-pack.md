@@ -55,7 +55,7 @@ citation_entailment = "signoff_research.verifiers.citation_entailment:citation_e
 signoff-research = "signoff_research.default_config:defaults"
 ```
 
-- `signoff.verifiers` — one entry per verifier. Each target is a `@verifier`-decorated async function. `Registry.discover()` loads every target at harness startup.
+- `signoff.verifiers` — one entry per verifier. Each target is a `@verifier`-decorated async function. `Registry.discovered()` (used by `Harness.from_config_path`) loads every target at harness startup.
 - `signoff.pack_defaults` — at most one entry per pack, targeting either a `() -> Mapping` callable or a module-level `Mapping`. The loader deep-merges these in at layer 2 of the resolution order (see [`docs/configuration.md`](./configuration.md) and protocol §6.2).
 
 ---
