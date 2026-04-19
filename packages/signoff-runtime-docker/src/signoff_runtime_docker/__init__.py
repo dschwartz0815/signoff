@@ -13,6 +13,7 @@ from __future__ import annotations
 __version__ = "0.0.1"
 
 from signoff_runtime_docker.config import DockerRuntimeConfig
+from signoff_runtime_docker.context import DockerVerifierContext
 from signoff_runtime_docker.errors import (
     ContainerStartError,
     DockerRuntimeNotAvailableError,
@@ -22,12 +23,19 @@ from signoff_runtime_docker.errors import (
     ImageVerificationNotConfiguredError,
     WorkspaceNotMountableError,
 )
+from signoff_runtime_docker.exec import DockerExec
+from signoff_runtime_docker.images import ImageManager
+from signoff_runtime_docker.runtime import DockerRuntime
 
 __all__ = [
     "ContainerStartError",
+    "DockerExec",
+    "DockerRuntime",
     "DockerRuntimeConfig",
     "DockerRuntimeNotAvailableError",
+    "DockerVerifierContext",
     "ExecCwdOutsideWorkspaceError",
+    "ImageManager",
     "ImageNotFoundError",
     "ImageNotTrustedError",
     "ImageVerificationNotConfiguredError",
