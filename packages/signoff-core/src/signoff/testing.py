@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Mapping
+from typing import Any
 
 from signoff.context import FetchResult, JudgeResult
 
@@ -66,27 +67,80 @@ class FakeJudge:
     """Deterministic LLM-judge stand-in.
 
     Tests queue specific :class:`JudgeResult` s with :meth:`queue`;
-    each call to :meth:`check_entailment` pops one. Once the queue is
-    drained, subsequent calls fall back to the ``default`` supplied at
-    construction, or raise :class:`LookupError` if no default was set.
+    each judge call pops one regardless of which method (entailment,
+    policy, classify) was invoked — tests that care about the shape of
+    the call can inspect :attr:`calls`, which records the method name
+    and kwargs for every invocation. Once the queue is drained,
+    subsequent calls fall back to ``default``, or raise
+    :class:`LookupError` if no default was set.
     """
 
     def __init__(self, default: JudgeResult | None = None) -> None:
         self._queue: deque[JudgeResult] = deque()
         self._default = default
-        self.calls: list[dict[str, str]] = []
+        self.calls: list[dict[str, Any]] = []
 
     def queue(self, *results: JudgeResult) -> None:
         """Append ``results`` to the response queue in order."""
         self._queue.extend(results)
 
-    async def check_entailment(self, *, claim: str, passage: str) -> JudgeResult:
-        self.calls.append({"claim": claim, "passage": passage})
+    async def check_entailment(
+        self,
+        *,
+        claim: str,
+        passage: str,
+        context: str | None = None,
+    ) -> JudgeResult:
+        self.calls.append(
+            {
+                "method": "check_entailment",
+                "claim": claim,
+                "passage": passage,
+                "context": context,
+            }
+        )
+        return self._pop("check_entailment")
+
+    async def check_policy_compliance(
+        self,
+        *,
+        output: str,
+        policy: str,
+        examples_of_violations: list[str] | None = None,
+    ) -> JudgeResult:
+        self.calls.append(
+            {
+                "method": "check_policy_compliance",
+                "output": output,
+                "policy": policy,
+                "examples_of_violations": examples_of_violations,
+            }
+        )
+        return self._pop("check_policy_compliance")
+
+    async def classify(
+        self,
+        *,
+        text: str,
+        labels: list[str],
+        rubric: str | None = None,
+    ) -> JudgeResult:
+        self.calls.append(
+            {
+                "method": "classify",
+                "text": text,
+                "labels": labels,
+                "rubric": rubric,
+            }
+        )
+        return self._pop("classify")
+
+    def _pop(self, method_name: str) -> JudgeResult:
         if self._queue:
             return self._queue.popleft()
         if self._default is not None:
             return self._default
         raise LookupError(
-            "FakeJudge queue is empty and no default was provided. "
+            f"FakeJudge queue is empty and no default was provided for {method_name}(). "
             "Call .queue(JudgeResult(...)) or pass default=JudgeResult(...) to __init__."
         )

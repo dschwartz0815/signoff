@@ -25,7 +25,7 @@ import time
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from signoff.models import Claim, Deliverable, Severity, VerifierResult
 
@@ -95,12 +95,43 @@ class FetchResult:
 
 @dataclass(frozen=True, slots=True)
 class JudgeResult:
-    """Outcome of an LLM-judge invocation."""
+    """Outcome of an LLM-judge invocation.
 
-    label: Literal["supported", "contradicted", "not_addressed"]
+    ``label`` is domain-specific per method:
+
+    - :meth:`JudgeClient.check_entailment` →
+      ``"supported" | "contradicted" | "not_addressed"``.
+    - :meth:`JudgeClient.check_policy_compliance` →
+      ``"compliant" | "violation"``.
+    - :meth:`JudgeClient.classify` → one of the caller-supplied
+      ``labels`` list.
+
+    ``model`` and ``prompt_version`` are mandatory for audit: a verdict
+    that relied on an LLM should always be re-traceable to *which*
+    model and *which* prompt produced it, even if the deployment later
+    swaps either out. ``raw_response`` keeps the provider's decoded
+    response around for debugging — optional, because fakes and caches
+    won't always have it.
+
+    ``excerpt`` defaults to ``None`` and is only populated when the
+    judge relied on a verbatim quote from the input passage. The
+    entailment prompt in ``signoff-judge`` requires the model to emit
+    one for ``supported`` labels.
+
+    Backwards-compatibility: every field added since the first
+    :class:`JudgeResult` landing has a default, so existing
+    ``JudgeResult(label=..., explanation=..., excerpt=..., cost_usd=...)``
+    call sites keep working.
+    """
+
+    label: str
     explanation: str
     excerpt: str | None
     cost_usd: float
+    confidence: float = 1.0
+    model: str = ""
+    prompt_version: str = ""
+    raw_response: Mapping[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -137,11 +168,43 @@ class HttpClient(Protocol):
 class JudgeClient(Protocol):
     """LLM judge client (protocol §4.3).
 
-    Real Anthropic/OpenAI-backed implementation lands in a follow-up PR.
-    Tests use :class:`signoff.testing.FakeJudge`.
+    Three methods, each returning a :class:`JudgeResult` with a
+    method-specific set of legal ``label`` values:
+
+    - :meth:`check_entailment` — does ``passage`` support ``claim``?
+      Labels: ``supported`` | ``contradicted`` | ``not_addressed``.
+    - :meth:`check_policy_compliance` — does ``output`` comply with
+      ``policy``? Labels: ``compliant`` | ``violation``.
+    - :meth:`classify` — general-purpose labelling against a
+      caller-supplied ``labels`` list.
+
+    Real Anthropic/OpenAI-backed implementations live in
+    :mod:`signoff_judge`. Tests use :class:`signoff.testing.FakeJudge`.
     """
 
-    async def check_entailment(self, *, claim: str, passage: str) -> JudgeResult: ...
+    async def check_entailment(
+        self,
+        *,
+        claim: str,
+        passage: str,
+        context: str | None = None,
+    ) -> JudgeResult: ...
+
+    async def check_policy_compliance(
+        self,
+        *,
+        output: str,
+        policy: str,
+        examples_of_violations: list[str] | None = None,
+    ) -> JudgeResult: ...
+
+    async def classify(
+        self,
+        *,
+        text: str,
+        labels: list[str],
+        rubric: str | None = None,
+    ) -> JudgeResult: ...
 
 
 # ---------------------------------------------------------------------------

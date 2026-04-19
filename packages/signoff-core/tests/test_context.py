@@ -263,3 +263,83 @@ async def test_fake_judge_without_default_raises_when_drained() -> None:
     j = FakeJudge()
     with pytest.raises(LookupError):
         await j.check_entailment(claim="c", passage="p")
+
+
+# ---------------------------------------------------------------------------
+# Extended JudgeClient surface
+# ---------------------------------------------------------------------------
+
+
+def test_judge_result_optional_fields_default() -> None:
+    """New fields are optional so existing callers compile unchanged."""
+    r = JudgeResult(
+        label="supported", explanation="ok", excerpt="x", cost_usd=0.01
+    )
+    assert r.confidence == 1.0
+    assert r.model == ""
+    assert r.prompt_version == ""
+    assert r.raw_response is None
+
+
+def test_judge_result_accepts_audit_fields() -> None:
+    r = JudgeResult(
+        label="supported",
+        explanation="ok",
+        excerpt="x",
+        cost_usd=0.01,
+        confidence=0.9,
+        model="claude-haiku-4-5",
+        prompt_version="1.0.0",
+        raw_response={"usage": {"input_tokens": 40, "output_tokens": 8}},
+    )
+    assert r.model == "claude-haiku-4-5"
+    assert r.prompt_version == "1.0.0"
+    assert r.raw_response is not None
+    assert r.raw_response["usage"]["input_tokens"] == 40
+
+
+@pytest.mark.asyncio
+async def test_fake_judge_check_policy_compliance_records_call() -> None:
+    default = JudgeResult(label="compliant", explanation="ok", excerpt=None, cost_usd=0.0)
+    j = FakeJudge(default=default)
+    result = await j.check_policy_compliance(
+        output="response body",
+        policy="must not disclose secrets",
+        examples_of_violations=["API key leaked"],
+    )
+    assert result.label == "compliant"
+    assert j.calls[0]["method"] == "check_policy_compliance"
+    assert j.calls[0]["policy"] == "must not disclose secrets"
+
+
+@pytest.mark.asyncio
+async def test_fake_judge_classify_records_labels() -> None:
+    default = JudgeResult(
+        label="news", explanation="newspaper source", excerpt=None, cost_usd=0.0
+    )
+    j = FakeJudge(default=default)
+    result = await j.classify(
+        text="Breaking: …",
+        labels=["news", "blog", "academic"],
+        rubric="Classify the source.",
+    )
+    assert result.label == "news"
+    assert j.calls[0]["method"] == "classify"
+    assert j.calls[0]["labels"] == ["news", "blog", "academic"]
+
+
+@pytest.mark.asyncio
+async def test_fake_judge_queue_shared_across_methods() -> None:
+    """One queue serves every method — tests that walk through a
+    sequence don't need per-method queues."""
+    j = FakeJudge()
+    a = JudgeResult(label="supported", explanation="a", excerpt=None, cost_usd=0.0)
+    b = JudgeResult(label="compliant", explanation="b", excerpt=None, cost_usd=0.0)
+    j.queue(a, b)
+    r1 = await j.check_entailment(claim="c", passage="p")
+    r2 = await j.check_policy_compliance(output="o", policy="p")
+    assert (r1, r2) == (a, b)
+    assert [c["method"] for c in j.calls] == [
+        "check_entailment",
+        "check_policy_compliance",
+    ]
