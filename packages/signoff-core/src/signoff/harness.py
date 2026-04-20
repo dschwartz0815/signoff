@@ -383,38 +383,24 @@ class Harness:
                 )
             )
 
-        # Per-claim verifiers.
+        # §5.2 step 3 — per-claim verifiers.
+        # Skip ``claim_kinds='*'`` verifiers here; they're resolved
+        # once below, unconditionally. Otherwise a whole-deliverable
+        # verifier with N claims would plan N duplicate runs.
         for claim in claims:
             for fn in self.registry.for_claim_kind(claim.kind):
+                if fn.signoff_meta.claim_kinds == ("*",):
+                    continue
                 _consider(fn, claim)
 
-        # Whole-deliverable verifiers. Registry.for_claim_kind already
-        # includes '*' verifiers for every claim, so to avoid duplication
-        # we add them once here with claim=None and skip their claim_kind
-        # entries above. Instead we filter: only include '*' verifiers
-        # once.
-        seen_whole: set[str] = set()
-        deduped: list[_PlannedVerifierRun] = []
-        for p in planned:
-            meta = p.verifier.signoff_meta
-            if meta.claim_kinds == ("*",):
-                if meta.fully_qualified_name in seen_whole:
-                    continue
-                seen_whole.add(meta.fully_qualified_name)
-                # rewrite to a single claim=None planned run.
-                deduped.append(
-                    _PlannedVerifierRun(
-                        verifier=p.verifier,
-                        claim=None,
-                        effective_severity=p.effective_severity,
-                        effective_timeout=p.effective_timeout,
-                        runtime_id=p.runtime_id,
-                        policy=p.policy,
-                    )
-                )
-            else:
-                deduped.append(p)
-        return deduped
+        # §5.2 step 4 — whole-deliverable verifiers, planned
+        # unconditionally (independent of the claims list). Nesting
+        # this resolution inside the per-claim loop was the bug:
+        # claims=[] silently dropped every whole-deliverable verifier.
+        for fn in self.registry.whole_deliverable():
+            _consider(fn, None)
+
+        return planned
 
     def _resolve_runtime_id(self, meta: VerifierMeta, config: HarnessConfig) -> str:
         fqn = meta.fully_qualified_name

@@ -920,3 +920,79 @@ async def test_verdict_serialises_cleanly(deliverable: Deliverable, claims: list
     payload = json.loads(raw)
     reloaded = type(verdict).model_validate(payload)
     assert reloaded.model_dump(mode="json") == verdict.model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# §5.2 — whole-deliverable resolution regression (empty claims list)
+# ---------------------------------------------------------------------------
+
+
+def _make_whole_deliverable_verifier(pack: str, name: str) -> Any:
+    """Register a ``claim_kinds='*'`` verifier that asserts it saw a
+    synthetic whole-deliverable claim (``claim_id is None`` in the
+    result)."""
+    with _testing_pack(pack):
+
+        @verifier(name=name, claim_kinds="*", cost_tier="cheap")
+        async def fn(_claim: Claim, ctx: VerifierContext) -> VerifierResult:
+            return ctx.ok(evidence={"whole": True})
+
+    return fn
+
+
+@pytest.mark.asyncio
+async def test_whole_deliverable_verifier_runs_with_empty_claims(
+    deliverable: Deliverable,
+) -> None:
+    """Regression for §5.2 step 4: whole-deliverable verifiers MUST
+    resolve when claims is empty. Before the fix, the per-claim loop
+    never ran and the whole-deliverable dedupe step had nothing to
+    dedupe, silently dropping the registered verifier."""
+    r = Registry()
+    r.register(_make_whole_deliverable_verifier("signoff-research", "overall"))
+    h = _build_harness(registry=r)
+    verdict = await h.verify(deliverable, claims=[])
+    assert len(verdict.results) == 1
+    assert verdict.results[0].verifier == "signoff-research.overall"
+    assert verdict.results[0].claim_id is None
+    assert verdict.results[0].passed is True
+
+
+@pytest.mark.asyncio
+async def test_whole_deliverable_and_per_claim_coexist(
+    deliverable: Deliverable, claims: list[Claim]
+) -> None:
+    """Both kinds of verifier resolve in the same run."""
+    r = Registry()
+    r.register(_make_whole_deliverable_verifier("signoff-research", "overall"))
+    r.register(_make_passing_verifier("signoff-research", "cite"))
+    h = _build_harness(registry=r)
+    verdict = await h.verify(deliverable, claims=claims)
+    by_verifier = [res.verifier for res in verdict.results]
+    # Two citation claims * 1 per-claim verifier + 1 whole-deliverable run.
+    assert by_verifier.count("signoff-research.cite") == 2
+    assert by_verifier.count("signoff-research.overall") == 1
+    # The whole-deliverable result has claim_id=None per §3.5.
+    whole = next(
+        r for r in verdict.results if r.verifier == "signoff-research.overall"
+    )
+    assert whole.claim_id is None
+
+
+@pytest.mark.asyncio
+async def test_whole_deliverable_runs_once_per_deliverable(
+    deliverable: Deliverable,
+) -> None:
+    """A whole-deliverable verifier is planned once, not once per claim."""
+    r = Registry()
+    r.register(_make_whole_deliverable_verifier("signoff-research", "overall"))
+    many_claims = [
+        Claim(id=f"clm_{i}", text="x", kind="citation", evidence={"url": f"u{i}"})
+        for i in range(3)
+    ]
+    h = _build_harness(registry=r)
+    verdict = await h.verify(deliverable, claims=many_claims)
+    fqn_counts: dict[str, int] = {}
+    for res in verdict.results:
+        fqn_counts[res.verifier] = fqn_counts.get(res.verifier, 0) + 1
+    assert fqn_counts.get("signoff-research.overall") == 1
