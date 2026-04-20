@@ -2,6 +2,8 @@
 
 **Agents make claims. Signoff makes them prove it.**
 
+[![Demo: passing verdict](https://asciinema.org/a/UPyJk0xbUX56Ojlk.svg)](https://asciinema.org/a/UPyJk0xbUX56Ojlk) · [![Demo: catching a broken claim](https://asciinema.org/a/dJdZuIAmOpkrEb91.svg)](https://asciinema.org/a/dJdZuIAmOpkrEb91)
+
 AI coding agents generate code faster than any process can review. Post-hoc observability tells you something broke; tests catch what you remembered to write. Signoff sits between an agent and its "done" claim, runs pluggable verifiers against the deliverable, and returns either a pass or a structured feedback packet the agent can retry against — before any human sees the output.
 
 ## Thirty-second example
