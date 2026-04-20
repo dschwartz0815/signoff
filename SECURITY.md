@@ -15,7 +15,7 @@ Instead, use GitHub's private-reporting feature:
 That surface routes straight to the maintainers without public
 disclosure.
 
-Alternatively, email `security@signoff.dev`. Include:
+Alternatively, email `security@sign-off.dev`. Include:
 
 - The affected package(s) and version(s).
 - A clear description of the issue.

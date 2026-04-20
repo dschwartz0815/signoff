@@ -43,7 +43,7 @@ without editing the harness config.
 | `retry_backoff_base` | 0.5 s | Exponential: `base * factor^(attempt-1)`. |
 | `retry_backoff_factor` | 2.0 | — |
 | `retry_max_backoff` | 10 s | Also caps server `Retry-After` hints. |
-| `user_agent` | `"Signoff/0.0 (+https://signoff.dev/bot)"` | Canonical and unforgeable from callers — a caller-supplied `User-Agent` header is dropped. |
+| `user_agent` | `"Signoff/0.0 (+https://sign-off.dev/bot)"` | Canonical and unforgeable from callers — a caller-supplied `User-Agent` header is dropped. |
 | `follow_redirects` | `true` | Final URL is recorded in `FetchResult.final_url`. |
 | `max_redirects` | 10 | — |
 | `max_response_bytes` | 10 MiB | Streaming enforcement: bodies larger than this are truncated, `FetchResult.ok = False`, `error = "response_exceeded_<N>_bytes"`. |

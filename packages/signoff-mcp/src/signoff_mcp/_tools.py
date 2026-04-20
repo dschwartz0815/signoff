@@ -133,6 +133,6 @@ def get_verdict_message() -> str:
     duplicating the string."""
     return (
         "get_verdict is only supported by the hosted Signoff service; "
-        "this is a local server. See https://signoff.dev (forthcoming) for "
+        "this is a local server. See https://sign-off.dev (forthcoming) for "
         "the managed offering."
     )

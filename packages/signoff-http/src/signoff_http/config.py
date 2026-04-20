@@ -17,8 +17,8 @@ __all__ = ["SIGNOFF_USER_AGENT", "HttpxClientConfig"]
 #: The canonical Signoff HTTP User-Agent. Sites that log user-agents
 #: will start trusting this exact string — do not change it casually.
 #: TODO(phase2): point the URL at a real bot-info page once
-#: https://signoff.dev exists.
-SIGNOFF_USER_AGENT = "Signoff/0.0 (+https://signoff.dev/bot)"
+#: https://sign-off.dev exists.
+SIGNOFF_USER_AGENT = "Signoff/0.0 (+https://sign-off.dev/bot)"
 
 
 class HttpxClientConfig(BaseSettings):

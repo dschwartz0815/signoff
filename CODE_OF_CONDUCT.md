@@ -14,7 +14,7 @@ the Covenant.
 ## Enforcement contact
 
 Reports of behaviour that violate the Covenant go to
-**`conduct@signoff.dev`**. Reports are handled privately.
+**`conduct@sign-off.dev`**. Reports are handled privately.
 Response time target: **2 business days** to acknowledge,
 **7 business days** to describe next steps. All reports are
 treated as confidential; retaliation against a good-faith

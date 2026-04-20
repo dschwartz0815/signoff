@@ -165,7 +165,7 @@ This is the primary distribution channel. An agent's system prompt instructs it 
 
 ### 7.3 Hosted Service
 
-A managed cloud service at signoff.dev (working name). Teams offload verification workloads when they need:
+A managed cloud service at sign-off.dev (working name). Teams offload verification workloads when they need:
 
 - Parallel verifier execution across a worker pool
 - Sandboxed, pre-warmed containers for running untrusted code
