@@ -10,7 +10,7 @@ from signoff import Claim, Severity, VerifierContext, VerifierResult, verifier
 from signoff_code.verifiers._common import (
     catch_workspace_error,
     excerpt,
-    materialize_from_ctx,
+    prepared_workspace,
 )
 from signoff_code.workspace import WorkspaceError
 
@@ -34,39 +34,38 @@ async def lint_clean(_claim: Claim, ctx: VerifierContext) -> VerifierResult:
     ``severity_override: blocker`` in the config for this verifier.
     """
     try:
-        change, workspace = await materialize_from_ctx(ctx)
+        change, workspace_root = prepared_workspace(ctx)
     except (WorkspaceError, ValidationError) as exc:
         return catch_workspace_error(ctx, exc)
 
-    async with workspace:
-        py_paths = [p for p in change.changed_paths if p.endswith(".py")]
-        if not py_paths:
-            return ctx.ok(
-                evidence={
-                    "tool": "ruff",
-                    "skipped": True,
-                    "reason": "no .py paths in change",
-                    "changed_paths": change.changed_paths,
-                }
-            )
-        # ``--no-cache`` is mandatory under the sandbox's read-only
-        # workspace mount: ruff tries to create ``.ruff_cache/`` in
-        # the working directory, which fails with EROFS on a ro mount
-        # per CLAUDE.md §8's safe-by-default posture. Caching would
-        # only help for repeated runs on the same files, and every
-        # verification gets a fresh materialised workspace, so the
-        # cache is pure overhead anyway.
-        args = [
-            "python",
-            "-m",
-            "ruff",
-            "check",
-            "--no-fix",
-            "--no-cache",
-            "--output-format=json",
-            *py_paths,
-        ]
-        result = await ctx.exec(args, cwd=workspace.root, timeout=60)
+    py_paths = [p for p in change.changed_paths if p.endswith(".py")]
+    if not py_paths:
+        return ctx.ok(
+            evidence={
+                "tool": "ruff",
+                "skipped": True,
+                "reason": "no .py paths in change",
+                "changed_paths": change.changed_paths,
+            }
+        )
+    # ``--no-cache`` is mandatory under the sandbox's read-only
+    # workspace mount: ruff tries to create ``.ruff_cache/`` in
+    # the working directory, which fails with EROFS on a ro mount
+    # per CLAUDE.md §8's safe-by-default posture. Caching would
+    # only help for repeated runs on the same files, and every
+    # verification gets a fresh materialised workspace, so the
+    # cache is pure overhead anyway.
+    args = [
+        "python",
+        "-m",
+        "ruff",
+        "check",
+        "--no-fix",
+        "--no-cache",
+        "--output-format=json",
+        *py_paths,
+    ]
+    result = await ctx.exec(args, cwd=workspace_root, timeout=60)
 
     findings = _parse_findings(result.stdout)
     evidence: dict[str, object] = {

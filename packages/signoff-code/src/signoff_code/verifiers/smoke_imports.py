@@ -17,7 +17,7 @@ from signoff.context import ExecResult
 from signoff_code.verifiers._common import (
     DEFAULT_STDOUT_EXCERPT_BYTES,
     catch_workspace_error,
-    materialize_from_ctx,
+    prepared_workspace,
 )
 from signoff_code.workspace import WorkspaceError
 
@@ -43,62 +43,61 @@ async def smoke_imports(_claim: Claim, ctx: VerifierContext) -> VerifierResult:
     downstream.
     """
     try:
-        change, workspace = await materialize_from_ctx(ctx)
+        change, workspace_root = prepared_workspace(ctx)
     except (WorkspaceError, ValidationError) as exc:
         return catch_workspace_error(ctx, exc)
 
-    async with workspace:
-        modules: list[tuple[str, str]] = []
-        for path in change.changed_paths:
-            if not path.endswith(".py"):
-                continue
-            name = module_name_for_path(path)
-            if name:
-                modules.append((path, name))
+    modules: list[tuple[str, str]] = []
+    for path in change.changed_paths:
+        if not path.endswith(".py"):
+            continue
+        name = module_name_for_path(path)
+        if name:
+            modules.append((path, name))
 
-        if not modules:
-            return ctx.ok(
+    if not modules:
+        return ctx.ok(
+            evidence={
+                "tool": "python -c import",
+                "skipped": True,
+                "reason": "no importable .py paths in change",
+                "changed_paths": change.changed_paths,
+            }
+        )
+
+    attempted: list[dict[str, object]] = []
+    for path, module in modules:
+        result = await ctx.exec(
+            ["python", "-c", f"import {module}"],
+            cwd=workspace_root,
+            timeout=30,
+            env={"PYTHONPATH": "."},
+        )
+        attempted.append(
+            {
+                "path": path,
+                "module": module,
+                "exit_code": result.exit_code,
+                "stderr": _tail(result.stderr, DEFAULT_STDOUT_EXCERPT_BYTES),
+            }
+        )
+        if result.exit_code != 0:
+            return ctx.fail(
+                reason=f"Import failed for module {module!r} ({path}).",
+                severity=Severity.BLOCKER,
+                suggestion=(
+                    f"`python -c 'import {module}'` failed; fix the "
+                    "top-level error before continuing."
+                ),
                 evidence={
                     "tool": "python -c import",
-                    "skipped": True,
-                    "reason": "no importable .py paths in change",
                     "changed_paths": change.changed_paths,
-                }
+                    "failed_module": module,
+                    "failed_path": path,
+                    "traceback": _tail(result.stderr, DEFAULT_STDOUT_EXCERPT_BYTES),
+                    "attempted": attempted,
+                },
             )
-
-        attempted: list[dict[str, object]] = []
-        for path, module in modules:
-            result = await ctx.exec(
-                ["python", "-c", f"import {module}"],
-                cwd=workspace.root,
-                timeout=30,
-                env={"PYTHONPATH": "."},
-            )
-            attempted.append(
-                {
-                    "path": path,
-                    "module": module,
-                    "exit_code": result.exit_code,
-                    "stderr": _tail(result.stderr, DEFAULT_STDOUT_EXCERPT_BYTES),
-                }
-            )
-            if result.exit_code != 0:
-                return ctx.fail(
-                    reason=f"Import failed for module {module!r} ({path}).",
-                    severity=Severity.BLOCKER,
-                    suggestion=(
-                        f"`python -c 'import {module}'` failed; fix the "
-                        "top-level error before continuing."
-                    ),
-                    evidence={
-                        "tool": "python -c import",
-                        "changed_paths": change.changed_paths,
-                        "failed_module": module,
-                        "failed_path": path,
-                        "traceback": _tail(result.stderr, DEFAULT_STDOUT_EXCERPT_BYTES),
-                        "attempted": attempted,
-                    },
-                )
 
     return ctx.ok(
         evidence={

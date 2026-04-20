@@ -10,7 +10,7 @@ from signoff import Claim, Severity, VerifierContext, VerifierResult, verifier
 from signoff_code.verifiers._common import (
     catch_workspace_error,
     excerpt,
-    materialize_from_ctx,
+    prepared_workspace,
 )
 from signoff_code.workspace import WorkspaceError
 
@@ -48,31 +48,30 @@ async def types_check(_claim: Claim, ctx: VerifierContext) -> VerifierResult:
     in a future commit) but the default is narrow.
     """
     try:
-        change, workspace = await materialize_from_ctx(ctx)
+        change, workspace_root = prepared_workspace(ctx)
     except (WorkspaceError, ValidationError) as exc:
         return catch_workspace_error(ctx, exc)
 
-    async with workspace:
-        py_paths = [p for p in change.changed_paths if p.endswith(".py")]
-        if not py_paths:
-            return ctx.ok(
-                evidence={
-                    "tool": "mypy",
-                    "skipped": True,
-                    "reason": "no .py paths in change",
-                    "changed_paths": change.changed_paths,
-                }
-            )
-        args = [
-            "python",
-            "-m",
-            "mypy",
-            "--no-error-summary",
-            "--show-error-codes",
-            "--follow-imports=silent",
-            *py_paths,
-        ]
-        result = await ctx.exec(args, cwd=workspace.root, timeout=120)
+    py_paths = [p for p in change.changed_paths if p.endswith(".py")]
+    if not py_paths:
+        return ctx.ok(
+            evidence={
+                "tool": "mypy",
+                "skipped": True,
+                "reason": "no .py paths in change",
+                "changed_paths": change.changed_paths,
+            }
+        )
+    args = [
+        "python",
+        "-m",
+        "mypy",
+        "--no-error-summary",
+        "--show-error-codes",
+        "--follow-imports=silent",
+        *py_paths,
+    ]
+    result = await ctx.exec(args, cwd=workspace_root, timeout=120)
 
     errors = _parse_errors(result.stdout)
     evidence: dict[str, object] = {

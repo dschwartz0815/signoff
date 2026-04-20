@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from signoff_code.deliverable import CodeChangeDeliverable
-from signoff_code.workspace import Workspace, WorkspaceError
+from signoff_code.workspace import WorkspaceError
 
 if TYPE_CHECKING:
     from signoff import Deliverable, Severity, VerifierContext, VerifierResult
@@ -26,7 +26,7 @@ __all__ = [
     "DEFAULT_STDOUT_EXCERPT_BYTES",
     "code_change_content",
     "excerpt",
-    "materialize_from_ctx",
+    "prepared_workspace",
     "workspace_error_result",
 ]
 
@@ -59,28 +59,37 @@ def code_change_content(deliverable: Deliverable) -> CodeChangeDeliverable:
     )
 
 
-async def materialize_from_ctx(
+def prepared_workspace(
     ctx: VerifierContext,
-    *,
-    tmp_root: Path | None = None,
-) -> tuple[CodeChangeDeliverable, Workspace]:
-    """Pull the code-change payload from ``ctx.deliverable`` and
-    return a materialised workspace.
+) -> tuple[CodeChangeDeliverable, Path]:
+    """Read the pre-materialised workspace off ``ctx``.
 
-    The tempdir is rooted under ``ctx.workspace`` (rather than
-    ``tempfile.gettempdir()``) so commands run via ``ctx.exec``
-    under :class:`DockerRuntime` can actually reach the tree — the
-    runtime bind-mounts ``ctx.workspace`` into the container, and
-    ``DockerExec`` rejects ``cwd`` paths that resolve outside it.
+    The harness materialises the workspace once per
+    :meth:`Harness.verify` via the
+    ``signoff.deliverable_preparers`` entry-point hook (see
+    :mod:`signoff_code.prepare`) and assigns its path to
+    ``ctx.workspace``. Verifiers call this helper to get the
+    ``CodeChangeDeliverable`` metadata and the workspace root as a
+    pair, without ever re-materialising.
 
-    Callers can override with ``tmp_root=`` for tests that want a
-    specific location. The returned :class:`Workspace` must be
-    cleaned up (async context manager form handles this).
+    If ``change.changed_paths`` is empty when we read it, we
+    populate it from :meth:`CodeChangeDeliverable.derive_changed_paths`.
+    The preparer normally does this during materialisation, but
+    unit tests bypass the preparer (they mock ``ctx.exec``) and
+    therefore skip its side-effects — this keeps those tests honest
+    without forcing every test to pre-populate the field.
+
+    Materialising per-verifier was the old default and caused
+    nested temp trees: the second verifier's ``_copy_tree`` would
+    include the first verifier's in-flight tempdir in the seed.
+    The preparer hook fixed this at the harness level; this helper
+    exists so individual verifier files don't need to reach into
+    ``ctx.deliverable`` + ``ctx.workspace`` separately.
     """
     change = code_change_content(ctx.deliverable)
-    effective_root = tmp_root if tmp_root is not None else ctx.workspace
-    workspace = await Workspace.materialize(change, http=ctx.http, tmp_root=effective_root)
-    return change, workspace
+    if not change.changed_paths:
+        change.changed_paths = change.derive_changed_paths()
+    return change, ctx.workspace
 
 
 def workspace_error_result(

@@ -27,7 +27,7 @@ import secrets
 import string
 import time
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -126,6 +126,23 @@ class _ExecutionState:
 # ---------------------------------------------------------------------------
 
 
+#: Entry-point group for per-deliverable-kind setup hooks. A pack
+#: that materialises a filesystem tree from a deliverable before
+#: verifiers run registers a callable under this group with
+#: ``name`` matching the ``Deliverable.kind`` it handles. Signature:
+#:
+#:     async def prepare(deliverable, http) -> (Path, async-cleanup)
+#:
+#: The harness runs the callable once per :meth:`Harness.verify`
+#: call, uses the returned ``Path`` as ``ctx.workspace`` for every
+#: verifier run of that verify, and calls the returned cleanup
+#: after the verdict is built (whether the verdict passed or
+#: failed). Returning ``None`` means the kind doesn't need
+#: preparation — the harness falls back to ``Path.cwd()`` per the
+#: Phase 0 convention.
+DELIVERABLE_PREPARER_ENTRY_POINT_GROUP = "signoff.deliverable_preparers"
+
+
 class Harness:
     """Verification orchestrator. See module docstring for the full flow."""
 
@@ -151,6 +168,11 @@ class Harness:
         self._prepared = False
         self._active_tasks: set[asyncio.Task[Any]] = set()
         self._cancel_event: asyncio.Event | None = None
+        # Per-verify() workspace + teardown, populated by
+        # :meth:`_run_deliverable_preparers` and consumed by the
+        # verifier-run loop.
+        self._prepared_workspace: Path | None = None
+        self._prepared_teardown: Callable[[], Awaitable[None]] | None = None
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -291,6 +313,15 @@ class Harness:
             merged = deep_merge(self.config.model_dump(mode="python"), dict(config_override))
             effective_config = HarnessConfig.model_validate(merged)
 
+        # Pack-level deliverable preparation (runs once per verify(),
+        # before any verifier). Packs register preparers under the
+        # ``signoff.deliverable_preparers`` entry-point group; the
+        # matching preparer owns materialising the workspace the
+        # runtime will bind-mount. Materialising per-verifier (the
+        # old default) caused nested temp trees when one verifier's
+        # base copy included another's in-flight materialisation.
+        await self._run_deliverable_preparers(deliverable)
+
         # §5.2 resolution.
         planned = self._resolve_verifiers(deliverable, claims, effective_config)
         state.planned_fqns = {_fqn(p) for p in planned}
@@ -301,31 +332,104 @@ class Harness:
 
         # §5.3 execution.
         try:
-            await self._execute_plan(
-                planned=planned,
-                deliverable=deliverable,
+            try:
+                await self._execute_plan(
+                    planned=planned,
+                    deliverable=deliverable,
+                    claims=claims,
+                    state=state,
+                    config=effective_config,
+                )
+            except asyncio.CancelledError:  # pragma: no cover — cancel handled below
+                state.cancelled = True
+                state.terminated_early = True
+
+            completed_at = _now_iso(self.clock)
+            duration_ms = int((time.perf_counter() - state.start_time) * 1000)
+
+            verdict = self._build_verdict(
+                deliverable_id=deliverable.id,
                 claims=claims,
                 state=state,
-                config=effective_config,
+                duration_ms=duration_ms,
+                started_at=started_at,
+                completed_at=completed_at,
+                retry_budget=retry_budget,
             )
-        except asyncio.CancelledError:  # pragma: no cover — cancel handled below
-            state.cancelled = True
-            state.terminated_early = True
-
-        completed_at = _now_iso(self.clock)
-        duration_ms = int((time.perf_counter() - state.start_time) * 1000)
-
-        verdict = self._build_verdict(
-            deliverable_id=deliverable.id,
-            claims=claims,
-            state=state,
-            duration_ms=duration_ms,
-            started_at=started_at,
-            completed_at=completed_at,
-            retry_budget=retry_budget,
-        )
-        self._cancel_event = None
+        finally:
+            # Preparer teardown runs whether the verdict passed,
+            # failed, or the whole pipeline was cancelled mid-flight.
+            await self._teardown_deliverable_preparers()
+            self._cancel_event = None
         return verdict
+
+    # ------------------------------------------------------------------
+    # Deliverable preparation (pre-§5.2 hook)
+    # ------------------------------------------------------------------
+
+    async def _run_deliverable_preparers(self, deliverable: Deliverable) -> None:
+        """Invoke every installed preparer whose entry-point name
+        matches ``deliverable.kind``.
+
+        A preparer returns ``(workspace_path, cleanup_coroutine_fn)``;
+        the first non-None return populates :attr:`_prepared_workspace`
+        and its teardown is queued for
+        :meth:`_teardown_deliverable_preparers`. Subsequent matching
+        preparers (rare) chain their teardowns but do not override
+        the workspace — one deliverable, one workspace.
+        """
+        from importlib.metadata import entry_points
+
+        self._prepared_workspace = None
+        self._prepared_teardown = None
+        teardowns: list[Callable[[], Awaitable[None]]] = []
+        for ep in entry_points(group=DELIVERABLE_PREPARER_ENTRY_POINT_GROUP):
+            if ep.name != deliverable.kind:
+                continue
+            try:
+                prepare_fn = ep.load()
+            except Exception as exc:
+                _logger.warning(
+                    "Failed to load deliverable preparer %s=%s: %s",
+                    ep.name,
+                    ep.value,
+                    exc,
+                )
+                continue
+            try:
+                result = await prepare_fn(deliverable, self.http)
+            except Exception as exc:
+                _logger.warning(
+                    "Preparer %s raised %s; continuing without it.",
+                    ep.value,
+                    exc,
+                )
+                continue
+            if result is None:
+                continue
+            path, cleanup = result
+            if self._prepared_workspace is None:
+                self._prepared_workspace = path
+            teardowns.append(cleanup)
+
+        async def _run_all_teardowns() -> None:
+            for td in teardowns:
+                try:
+                    await td()
+                except Exception as exc:
+                    _logger.warning("Preparer teardown raised %s; continuing.", exc)
+
+        self._prepared_teardown = _run_all_teardowns if teardowns else None
+
+    async def _teardown_deliverable_preparers(self) -> None:
+        """Run whatever cleanup :meth:`_run_deliverable_preparers`
+        queued. Idempotent: called from ``verify()``'s finally block
+        regardless of path through the try."""
+        teardown = self._prepared_teardown
+        self._prepared_teardown = None
+        self._prepared_workspace = None
+        if teardown is not None:
+            await teardown()
 
     # ------------------------------------------------------------------
     # §5.2 — resolution
@@ -629,6 +733,7 @@ class Harness:
                 http=self.http,
                 judge=self.judge,
                 policy=planned.policy,
+                workspace=self._prepared_workspace,
                 budget_remaining_usd=max(0.0, config.budget.max_cost_usd - state.cost_so_far),
             )
             ctx.current_verifier_meta = meta

@@ -973,9 +973,7 @@ async def test_whole_deliverable_and_per_claim_coexist(
     assert by_verifier.count("signoff-research.cite") == 2
     assert by_verifier.count("signoff-research.overall") == 1
     # The whole-deliverable result has claim_id=None per §3.5.
-    whole = next(
-        r for r in verdict.results if r.verifier == "signoff-research.overall"
-    )
+    whole = next(r for r in verdict.results if r.verifier == "signoff-research.overall")
     assert whole.claim_id is None
 
 
@@ -987,8 +985,7 @@ async def test_whole_deliverable_runs_once_per_deliverable(
     r = Registry()
     r.register(_make_whole_deliverable_verifier("signoff-research", "overall"))
     many_claims = [
-        Claim(id=f"clm_{i}", text="x", kind="citation", evidence={"url": f"u{i}"})
-        for i in range(3)
+        Claim(id=f"clm_{i}", text="x", kind="citation", evidence={"url": f"u{i}"}) for i in range(3)
     ]
     h = _build_harness(registry=r)
     verdict = await h.verify(deliverable, claims=many_claims)

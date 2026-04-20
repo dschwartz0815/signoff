@@ -11,7 +11,7 @@ from signoff import Claim, Severity, VerifierContext, VerifierResult, verifier
 from signoff_code.verifiers._common import (
     catch_workspace_error,
     excerpt,
-    materialize_from_ctx,
+    prepared_workspace,
 )
 from signoff_code.workspace import WorkspaceError
 
@@ -60,17 +60,16 @@ async def tests_pass(_claim: Claim, ctx: VerifierContext) -> VerifierResult:
       synthetic per protocol §4.4.
     """
     try:
-        change, workspace = await materialize_from_ctx(ctx)
+        change, workspace_root = prepared_workspace(ctx)
     except (WorkspaceError, ValidationError) as exc:
         return catch_workspace_error(ctx, exc)
 
-    async with workspace:
-        pytest_args = ["-q", "--tb=short"]
-        result = await ctx.exec(
-            ["python", "-m", "pytest", *pytest_args],
-            cwd=workspace.root,
-            timeout=300,
-        )
+    pytest_args = ["-q", "--tb=short"]
+    result = await ctx.exec(
+        ["python", "-m", "pytest", *pytest_args],
+        cwd=workspace_root,
+        timeout=300,
+    )
 
     summary = _parse_summary(result.stdout)
     evidence: dict[str, object] = {

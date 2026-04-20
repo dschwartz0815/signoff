@@ -122,10 +122,31 @@ def _meta_for(verifier: Any, *, name: str) -> VerifierMeta:
     )
 
 
-def _ctx_for(deliverable: Deliverable, meta: VerifierMeta) -> VerifierContext:
-    ctx = make_context(deliverable=deliverable, http=FakeHttpClient(), judge=FakeJudge())
+async def _ctx_for(
+    deliverable: Deliverable, meta: VerifierMeta
+) -> tuple[VerifierContext, Any]:
+    """Build a ctx with the workspace already materialised.
+
+    These tests bypass the harness (they call ``runtime.execute``
+    directly), so the ``signoff.deliverable_preparers`` entry-point
+    hook that verify() would normally invoke never fires. Call the
+    preparer manually so ``ctx.workspace`` matches what a verifier
+    running through the real harness would see. Returns the ctx and
+    a cleanup coroutine the caller must await.
+    """
+    from signoff_code.prepare import prepare_code_change
+
+    result = await prepare_code_change(deliverable, FakeHttpClient())
+    assert result is not None, "prepare_code_change returned None"
+    workspace_root, cleanup = result
+    ctx = make_context(
+        deliverable=deliverable,
+        http=FakeHttpClient(),
+        judge=FakeJudge(),
+        workspace=workspace_root,
+    )
     ctx.current_verifier_meta = meta
-    return ctx
+    return ctx, cleanup
 
 
 def _claim() -> Claim:
@@ -142,13 +163,17 @@ async def test_tests_pass_against_passing_fixture() -> None:
         _FIXTURES / "passing_change", intent="add basic calculator"
     )
     meta = _meta_for(tests_pass, name="tests_pass")
-    async with DockerRuntime(_runtime_config()) as runtime:
-        verdict = await runtime.execute(
-            tests_pass,
-            claim=_claim(),
-            ctx=_ctx_for(deliverable, meta),
-            policy=RuntimePolicy(timeout_seconds=60),
-        )
+    ctx, _ws_cleanup = await _ctx_for(deliverable, meta)
+    try:
+        async with DockerRuntime(_runtime_config()) as runtime:
+            verdict = await runtime.execute(
+                tests_pass,
+                claim=_claim(),
+                ctx=ctx,
+                policy=RuntimePolicy(timeout_seconds=60),
+            )
+    finally:
+        await _ws_cleanup()
     assert verdict.passed is True, verdict.reason
     assert verdict.evidence["tool"] == "pytest"
     assert verdict.evidence["passed"] >= 2
@@ -159,13 +184,17 @@ async def test_tests_pass_against_failing_fixture() -> None:
         _FIXTURES / "failing_test", intent="add broken calculator"
     )
     meta = _meta_for(tests_pass, name="tests_pass")
-    async with DockerRuntime(_runtime_config()) as runtime:
-        verdict = await runtime.execute(
-            tests_pass,
-            claim=_claim(),
-            ctx=_ctx_for(deliverable, meta),
-            policy=RuntimePolicy(timeout_seconds=60),
-        )
+    ctx, _ws_cleanup = await _ctx_for(deliverable, meta)
+    try:
+        async with DockerRuntime(_runtime_config()) as runtime:
+            verdict = await runtime.execute(
+                tests_pass,
+                claim=_claim(),
+                ctx=ctx,
+                policy=RuntimePolicy(timeout_seconds=60),
+            )
+    finally:
+        await _ws_cleanup()
     assert verdict.passed is False
     assert verdict.severity == Severity.BLOCKER
     assert verdict.suggestion is not None
@@ -183,26 +212,34 @@ async def test_types_check_against_passing_fixture() -> None:
         _FIXTURES / "passing_change", intent="add basic calculator"
     )
     meta = _meta_for(types_check, name="types_check")
-    async with DockerRuntime(_runtime_config()) as runtime:
-        verdict = await runtime.execute(
-            types_check,
-            claim=_claim(),
-            ctx=_ctx_for(deliverable, meta),
-            policy=RuntimePolicy(timeout_seconds=60),
-        )
+    ctx, _ws_cleanup = await _ctx_for(deliverable, meta)
+    try:
+        async with DockerRuntime(_runtime_config()) as runtime:
+            verdict = await runtime.execute(
+                types_check,
+                claim=_claim(),
+                ctx=ctx,
+                policy=RuntimePolicy(timeout_seconds=60),
+            )
+    finally:
+        await _ws_cleanup()
     assert verdict.passed is True, verdict.reason
 
 
 async def test_types_check_against_type_error_fixture() -> None:
     deliverable = _deliverable_from_fixture(_FIXTURES / "type_error", intent="introduce type error")
     meta = _meta_for(types_check, name="types_check")
-    async with DockerRuntime(_runtime_config()) as runtime:
-        verdict = await runtime.execute(
-            types_check,
-            claim=_claim(),
-            ctx=_ctx_for(deliverable, meta),
-            policy=RuntimePolicy(timeout_seconds=60),
-        )
+    ctx, _ws_cleanup = await _ctx_for(deliverable, meta)
+    try:
+        async with DockerRuntime(_runtime_config()) as runtime:
+            verdict = await runtime.execute(
+                types_check,
+                claim=_claim(),
+                ctx=ctx,
+                policy=RuntimePolicy(timeout_seconds=60),
+            )
+    finally:
+        await _ws_cleanup()
     assert verdict.passed is False
     assert verdict.severity == Severity.BLOCKER
     assert verdict.evidence["error_count"] >= 1
@@ -218,13 +255,17 @@ async def test_smoke_imports_catches_broken_import() -> None:
         _FIXTURES / "broken_import", intent="add calculator with import bug"
     )
     meta = _meta_for(smoke_imports, name="smoke_imports")
-    async with DockerRuntime(_runtime_config()) as runtime:
-        verdict = await runtime.execute(
-            smoke_imports,
-            claim=_claim(),
-            ctx=_ctx_for(deliverable, meta),
-            policy=RuntimePolicy(timeout_seconds=30),
-        )
+    ctx, _ws_cleanup = await _ctx_for(deliverable, meta)
+    try:
+        async with DockerRuntime(_runtime_config()) as runtime:
+            verdict = await runtime.execute(
+                smoke_imports,
+                claim=_claim(),
+                ctx=ctx,
+                policy=RuntimePolicy(timeout_seconds=30),
+            )
+    finally:
+        await _ws_cleanup()
     assert verdict.passed is False
     assert verdict.severity == Severity.BLOCKER
     assert verdict.evidence["failed_module"] == "calculator"
@@ -241,13 +282,17 @@ async def test_lint_clean_against_passing_fixture() -> None:
         _FIXTURES / "passing_change", intent="add basic calculator"
     )
     meta = _meta_for(lint_clean, name="lint_clean")
-    async with DockerRuntime(_runtime_config()) as runtime:
-        verdict = await runtime.execute(
-            lint_clean,
-            claim=_claim(),
-            ctx=_ctx_for(deliverable, meta),
-            policy=RuntimePolicy(timeout_seconds=30),
-        )
+    ctx, _ws_cleanup = await _ctx_for(deliverable, meta)
+    try:
+        async with DockerRuntime(_runtime_config()) as runtime:
+            verdict = await runtime.execute(
+                lint_clean,
+                claim=_claim(),
+                ctx=ctx,
+                policy=RuntimePolicy(timeout_seconds=30),
+            )
+    finally:
+        await _ws_cleanup()
     assert verdict.passed is True, verdict.reason
 
 

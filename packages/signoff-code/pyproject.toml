@@ -22,6 +22,9 @@ types_check = "signoff_code.verifiers.types_check:types_check"
 [project.entry-points."signoff.pack_defaults"]
 signoff-code = "signoff_code.defaults:load"
 
+[project.entry-points."signoff.deliverable_preparers"]
+code_change = "signoff_code.prepare:prepare_code_change"
+
 [project.urls]
 Homepage = "https://github.com/signoff/signoff"
 Repository = "https://github.com/signoff/signoff"
