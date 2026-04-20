@@ -745,3 +745,84 @@ async def test_from_config_path_docker_fallback_when_package_missing(
     assert set(h.runtimes.keys()) == {"local"}
     messages = "\n".join(r.getMessage() for r in caplog.records)
     assert "signoff-runtime-docker is not installed" in messages
+
+
+@pytest.mark.asyncio
+async def test_docker_runtime_policy_image_wins_over_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: ``runtime_policy.docker.image`` in YAML must win
+    over ``SIGNOFF_DOCKER_DEFAULT_IMAGE`` in the environment.
+
+    Before this fix, the harness constructed
+    ``DockerRuntime(DockerRuntimeConfig())`` with no arguments, so
+    the YAML field was silently ignored — the only way to set the
+    image was the env var. Now the harness reads
+    ``runtime_policy.docker.image`` from the config and passes it
+    as an init kwarg, which pydantic-settings ranks above env
+    vars. (See docs/configuration.md § "SIGNOFF_DOCKER_*" for the
+    full precedence story.)
+    """
+    from signoff.registry import default_registry
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+    monkeypatch.setenv("SIGNOFF_DOCKER_DEFAULT_IMAGE", "from-env:tag")
+    monkeypatch.setenv("SIGNOFF_DOCKER_VERIFY_SIGNATURES", "false")
+
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "runtime:\n"
+        "  default: docker\n"
+        "runtime_policy:\n"
+        "  docker:\n"
+        "    image: from-yaml:tag\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    h = await Harness.from_config_path(cfg_path, pack_defaults=False)
+    docker_runtime = h.runtimes["docker"]
+    assert docker_runtime._config.default_image == "from-yaml:tag"  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_docker_env_fills_defaults_when_yaml_silent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When YAML doesn't mention a field, the env var (or code
+    default) supplies it — pydantic-settings precedence."""
+    from signoff.registry import default_registry
+
+    default_registry.clear()
+    default_registry.register(_pass_cite())
+    monkeypatch.setattr(
+        "signoff.registry.Registry.discovered",
+        classmethod(lambda cls: default_registry),
+    )
+    monkeypatch.setenv("SIGNOFF_DOCKER_DEFAULT_IMAGE", "from-env:tag")
+    monkeypatch.setenv("SIGNOFF_DOCKER_VERIFY_SIGNATURES", "false")
+
+    cfg_path = tmp_path / "harness.yaml"
+    cfg_path.write_text(
+        'protocol_version: "0.1"\n'
+        "packs: [signoff-research]\n"
+        "runtime:\n"
+        "  default: docker\n"
+        "deliverables:\n"
+        "  research_report:\n"
+        "    verifiers:\n"
+        "      signoff-research.citation_smoke:\n"
+        "        enabled: true\n"
+    )
+    h = await Harness.from_config_path(cfg_path, pack_defaults=False)
+    docker_runtime = h.runtimes["docker"]
+    assert docker_runtime._config.default_image == "from-env:tag"  # type: ignore[attr-defined]

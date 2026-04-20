@@ -983,7 +983,7 @@ def _try_build_docker_runtime(config: HarnessConfig) -> Runtime | None:
     if not uses_docker:
         return None
     try:
-        from signoff_runtime_docker import DockerRuntime
+        from signoff_runtime_docker import DockerRuntime, DockerRuntimeConfig
     except ImportError:
         _logger.warning(
             "runtime=docker requested in config but signoff-runtime-docker "
@@ -992,8 +992,80 @@ def _try_build_docker_runtime(config: HarnessConfig) -> Runtime | None:
             "`pip install signoff-runtime-docker` to enable sandboxing."
         )
         return None
-    _logger.info("Runtime docker=on — constructing DockerRuntime from config.")
-    return DockerRuntime()
+
+    # Pull the ``runtime_policy.docker`` YAML block (the
+    # RuntimePolicyConfig is ``extra="allow"``, so docker-specific
+    # settings live there as a plain dict) and translate the
+    # fields signoff-runtime-docker understands into
+    # DockerRuntimeConfig init kwargs. Pydantic-settings source
+    # precedence puts init kwargs above env vars, so YAML values
+    # win over SIGNOFF_DOCKER_* env — matching the natural
+    # operator expectation that "I set it in the config, so it's
+    # set" (and documented in docs/configuration.md).
+    kwargs = _docker_runtime_kwargs_from_yaml(config)
+    if kwargs:
+        _logger.info(
+            "Runtime docker=on — constructing DockerRuntime with YAML-provided fields: %s",
+            ", ".join(sorted(kwargs.keys())),
+        )
+    else:
+        _logger.info("Runtime docker=on — constructing DockerRuntime from env + defaults.")
+    return DockerRuntime(DockerRuntimeConfig(**kwargs))
+
+
+#: Fields signoff-runtime-docker accepts that the core's
+#: ``runtime_policy.docker`` YAML block exposes. The mapping is
+#: deliberately narrow — unknown keys in the YAML are ignored with
+#: a DEBUG log rather than crashing the harness, so a future
+#: DockerRuntimeConfig field can be added without a lockstep core
+#: release.
+_DOCKER_YAML_FIELD_MAP: dict[str, str] = {
+    "image": "default_image",
+    "timeout_seconds": "default_timeout_seconds",
+    "cpu_limit": "default_cpu_limit",
+    "memory_limit_mb": "default_memory_limit_mb",
+    "pull_policy": "pull_policy",
+    "workspace_mount_mode": "workspace_mount_mode",
+    "verify_signatures": "verify_signatures",
+}
+
+
+def _docker_runtime_kwargs_from_yaml(config: HarnessConfig) -> dict[str, Any]:
+    """Translate ``runtime_policy.docker.*`` YAML keys into
+    ``DockerRuntimeConfig`` init kwargs.
+
+    Returns ``{}`` when the YAML block is absent or has no
+    recognised keys. Unknown keys are logged at DEBUG and ignored.
+    """
+    raw_block = getattr(config.runtime_policy, "docker", None)
+    if raw_block is None:
+        # extra="allow" stashes unknown keys on __pydantic_extra__;
+        # plain attribute access returns None when absent.
+        return {}
+    # The block may arrive as a dict (from deep_merge layers) or a
+    # model instance — normalise both.
+    if hasattr(raw_block, "model_dump"):
+        raw: dict[str, Any] = raw_block.model_dump(mode="python")
+    elif isinstance(raw_block, dict):
+        raw = dict(raw_block)
+    else:
+        _logger.debug(
+            "runtime_policy.docker has unexpected type %s; ignoring", type(raw_block).__name__
+        )
+        return {}
+
+    kwargs: dict[str, Any] = {}
+    for yaml_key, cfg_key in _DOCKER_YAML_FIELD_MAP.items():
+        if yaml_key in raw and raw[yaml_key] is not None:
+            kwargs[cfg_key] = raw[yaml_key]
+    unknown = sorted(set(raw.keys()) - set(_DOCKER_YAML_FIELD_MAP.keys()))
+    if unknown:
+        _logger.debug(
+            "runtime_policy.docker keys ignored by signoff-core: %s "
+            "(they may still be respected by the runtime via env vars)",
+            ", ".join(unknown),
+        )
+    return kwargs
 
 
 def _resolve_judge_client(

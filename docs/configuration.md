@@ -152,6 +152,20 @@ Values are strings on the env boundary; Pydantic coerces them to the declared ty
 
 Env vars whose nested path collides with an already-set scalar are ignored and logged at WARNING.
 
+### `SIGNOFF_DOCKER_*` precedence
+
+`DockerRuntimeConfig` is a `pydantic-settings` `BaseSettings`, so its field precedence follows pydantic-settings' documented default:
+
+1. **YAML `runtime_policy.docker.*`** (highest). When the harness constructs `DockerRuntime`, it reads the `runtime_policy.docker` block from the merged config and passes every recognised field (`image`, `pull_policy`, `timeout_seconds`, `cpu_limit`, `memory_limit_mb`, `workspace_mount_mode`, `verify_signatures`) as init kwargs to `DockerRuntimeConfig`. Init kwargs outrank environment variables.
+2. **`SIGNOFF_DOCKER_*` environment variables**. Used when YAML doesn't specify a field — or for fields the harness doesn't forward from YAML (`max_concurrent_containers`, exec output caps, cosign identity regex, etc.), which are operator-level knobs with no natural per-verification override.
+3. **Code defaults** on `DockerRuntimeConfig` (lowest).
+
+Operational implications:
+
+- Setting `runtime_policy.docker.image: my-org/sandbox:v2` in your harness YAML wins over `SIGNOFF_DOCKER_DEFAULT_IMAGE=my-org/sandbox:v1` in the environment. The YAML is the declarative intent; the env is the ambient override.
+- Setting the image only via env (`SIGNOFF_DOCKER_DEFAULT_IMAGE`) with no YAML override also works — same as before.
+- Unknown keys under `runtime_policy.docker` are ignored with a DEBUG log. A future `DockerRuntimeConfig` field can be added without a lockstep core release.
+
 ---
 
 ## Common patterns

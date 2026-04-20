@@ -45,6 +45,7 @@ coverage/
 # Local overrides
 .env.local
 docker-compose.override.yml
+/tmp/signoff-demo/*
 
 # SDK schema mirror — source of truth is packages/signoff-core/src/signoff/schemas/.
 # Copied into place by packages/signoff-sdk-ts/scripts/copy-schemas.mjs via the

@@ -122,9 +122,7 @@ def _meta_for(verifier: Any, *, name: str) -> VerifierMeta:
     )
 
 
-async def _ctx_for(
-    deliverable: Deliverable, meta: VerifierMeta
-) -> tuple[VerifierContext, Any]:
+async def _ctx_for(deliverable: Deliverable, meta: VerifierMeta) -> tuple[VerifierContext, Any]:
     """Build a ctx with the workspace already materialised.
 
     These tests bypass the harness (they call ``runtime.execute``
