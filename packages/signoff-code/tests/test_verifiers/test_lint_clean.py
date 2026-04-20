@@ -64,3 +64,20 @@ async def test_ruff_garbage_output_falls_back_to_info(make_ctx, meta_for, synthe
     result = await lint_clean(synthetic_claim, ctx)
     assert result.passed is False
     assert result.severity == Severity.INFO
+
+
+async def test_ruff_invoked_with_no_cache(make_ctx, meta_for, synthetic_claim) -> None:
+    """Regression: ruff's default cache dir creation fails on a ro
+    workspace bind-mount (EROFS). The verifier must pass
+    ``--no-cache`` so launches under DockerRuntime's default
+    ``workspace_mount_mode="ro"`` succeed.
+    """
+    change = CodeChangeDeliverable(intent="x", files={"a.py": "X = 1\n"})
+    ctx = make_ctx(change, meta_for("lint_clean"), responses=[exec_result(exit_code=0)])
+    await lint_clean(synthetic_claim, ctx)
+    cmd = ctx.calls[0].cmd
+    assert cmd[:4] == ["python", "-m", "ruff", "check"]
+    assert "--no-cache" in cmd, (
+        "ruff must be invoked with --no-cache so it doesn't try to "
+        "mkdir .ruff_cache/ under a read-only workspace mount."
+    )

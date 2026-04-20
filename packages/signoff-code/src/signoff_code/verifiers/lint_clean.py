@@ -49,12 +49,20 @@ async def lint_clean(_claim: Claim, ctx: VerifierContext) -> VerifierResult:
                     "changed_paths": change.changed_paths,
                 }
             )
+        # ``--no-cache`` is mandatory under the sandbox's read-only
+        # workspace mount: ruff tries to create ``.ruff_cache/`` in
+        # the working directory, which fails with EROFS on a ro mount
+        # per CLAUDE.md §8's safe-by-default posture. Caching would
+        # only help for repeated runs on the same files, and every
+        # verification gets a fresh materialised workspace, so the
+        # cache is pure overhead anyway.
         args = [
             "python",
             "-m",
             "ruff",
             "check",
             "--no-fix",
+            "--no-cache",
             "--output-format=json",
             *py_paths,
         ]
