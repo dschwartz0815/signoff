@@ -149,8 +149,18 @@ jobs:
           cache-to: type=gha,mode=max,scope=signoff-code
 
       - name: Smoke-test signoff-mcp image
+        # ``--health`` only makes sense with ``--transport http``
+        # (the stdio transport has no health endpoint), so the
+        # earlier ``python -m signoff_mcp --health`` call failed
+        # before the Python module could even start. A network-
+        # less import smoke is enough for CI: the goal here is
+        # "the image's Python environment is wired correctly and
+        # the package is on the path", not end-to-end MCP
+        # behaviour (which the live-docker integration tests
+        # cover separately, gated behind ``-m docker``).
         run: |
-          docker run --rm signoff-mcp:ci python -m signoff_mcp --health
+          docker run --rm signoff-mcp:ci python -c \
+            "import signoff_mcp; print('signoff-mcp module imports cleanly:', signoff_mcp.__version__)"
 
       - name: Scan signoff-mcp image (trivy)
         uses: aquasecurity/trivy-action@v0.36.0
