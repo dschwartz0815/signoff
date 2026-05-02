@@ -48,8 +48,9 @@ walkthrough](../docs/quickstart.md) uses.
 **How to run it.** Four commands:
 
 ```sh
-# Build the sandbox image (once per machine):
-docker build -t signoff/code-sandbox:dev packages/signoff-code
+# Pull the published sandbox image (once per machine — the example
+# config's runtime_policy.docker.image points at this same tag):
+docker pull ghcr.io/dschwartz0815/signoff/code-sandbox:latest
 
 # Export an API key (for semantic_diff):
 export SIGNOFF_JUDGE_API_KEY=sk-ant-...

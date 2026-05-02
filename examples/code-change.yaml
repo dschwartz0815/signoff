@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   pip install signoff-code signoff-runtime-docker signoff-judge signoff-http
-#   docker build -t signoff/code-sandbox:dev packages/signoff-code
+#   docker pull ghcr.io/dschwartz0815/signoff/code-sandbox:latest
 #   export SIGNOFF_JUDGE_API_KEY=...  # optional: enables semantic_diff
 #
 # The pack's own ``default_config.yaml`` (installed via the
@@ -32,11 +32,15 @@ runtime_policy:
     cpu_limit: 2.0
     memory_limit_mb: 2048
     network: none
-    # Operators running against the published image should point at
-    # ``ghcr.io/dschwartz0815/signoff/code-sandbox:latest`` here; the dev image
-    # built locally from packages/signoff-code/Dockerfile is the
-    # recommended starting point until you have cosign configured.
-    image: signoff/code-sandbox:dev
+    # Defaults to the published multi-arch image so a fresh-machine
+    # ``docker pull`` followed by ``signoff-mcp --config
+    # examples/code-change.yaml`` Just Works without any local build
+    # step. Maintainers iterating on the pack's Dockerfile can swap
+    # in a locally-built ``signoff/code-sandbox:dev`` (produced by
+    # ``docker build -t signoff/code-sandbox:dev packages/signoff-code``)
+    # to test changes before pushing — but that's the inner-loop
+    # path, not the user-facing one.
+    image: ghcr.io/dschwartz0815/signoff/code-sandbox:latest
 
 http:
   provider: httpx
