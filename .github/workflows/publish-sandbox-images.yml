@@ -73,7 +73,7 @@ jobs:
           cosign sign --yes "${{ matrix.image }}@${{ steps.build.outputs.digest }}"
 
       - name: Install trivy
-        uses: aquasecurity/setup-trivy@v0
+        uses: aquasecurity/setup-trivy@v0.2.6
         with:
           version: latest
 

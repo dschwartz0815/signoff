@@ -153,7 +153,7 @@ jobs:
           docker run --rm signoff-mcp:ci python -m signoff_mcp --health
 
       - name: Scan signoff-mcp image (trivy)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: signoff-mcp:ci
           severity: CRITICAL
