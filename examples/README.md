@@ -61,15 +61,21 @@ signoff-mcp --transport http --host 127.0.0.1 --port 8765 \
 # (Optional) smoke-check from Python:
 python - <<'PY'
 import asyncio
+from pathlib import Path
+
 from signoff import Deliverable, Harness
-from signoff_code import CodeChangeDeliverable
+
 
 async def main():
+    Path("x.py").write_text("x = 1\n")
     d = Deliverable(
-        id="dlv_smoke", kind="code_change",
-        content=CodeChangeDeliverable(
-            intent="Add trivial calculator.", files={"x.py": "x = 1\n"},
-        ),
+        id="dlv_smoke",
+        kind="code_change",
+        content={
+            "intent": "Add trivial calculator.",
+            "base": {"kind": "local_path", "value": str(Path.cwd())},
+            "files": {"x.py": "x = 1\n"},
+        },
     )
     async with await Harness.from_config_path("examples/code-change.yaml") as h:
         v = await h.verify(d, claims=[])

@@ -270,9 +270,9 @@ isn't using it, check that your system prompt tells it to.
 verdict = await harness.verify(deliverable, claims=[])
 if verdict.feedback_packet:
     for b in verdict.feedback_packet.blockers:
-        print(f"[{b.verifier}] {b.reason}\n  repair: {b.suggested_repair}\n")
+        print(f"[{b.verifier}] {b.issue}\n  repair: {b.suggested_repair}\n")
     for w in verdict.feedback_packet.warnings:
-        print(f"[{w.verifier}] {w.note}")
+        print(f"[{w.verifier}] {w.issue}")
 ```
 
 ### Find the logs

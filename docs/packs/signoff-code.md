@@ -21,18 +21,35 @@ for dev but surfaces a WARNING.
 ## The deliverable shape
 
 `signoff-code` consumes `Deliverable(kind="code_change",
-content=<CodeChangeDeliverable>)`. The model:
+content=<dict>)`. The pack registers a `code_change` preparer that
+validates `content` into a `CodeChangeDeliverable` for you — pass a
+plain dict and let the harness do the conversion. Wrapping the
+dict in `CodeChangeDeliverable(...)` yourself trips the preparer's
+"unexpected content type" guard and skips workspace materialisation.
+
+Canonical form:
 
 ```python
-from signoff_code import CodeChangeDeliverable, BaseReference
+from signoff import Deliverable
 
-CodeChangeDeliverable(
-    intent="Add input validation to parse_config",
-    base=BaseReference(kind="local_path", value="/repo/project"),
-    diff="--- a/config.py\n+++ b/config.py\n@@ ... @@\n+...",
-    # ... or: files={"config.py": "new content ..."},
+Deliverable(
+    id="dlv_example",
+    kind="code_change",
+    content={
+        "intent": "Add input validation to parse_config",
+        "base": {"kind": "local_path", "value": "/repo/project"},
+        # exactly one of `diff` or `files`:
+        "diff": "--- a/config.py\n+++ b/config.py\n@@ ... @@\n+...",
+        # "files": {"config.py": "new content ..."},
+    },
 )
 ```
+
+The validator backing this dict is `CodeChangeDeliverable` in
+`signoff_code.deliverable` — it's the source of truth for which
+fields are required and how they interact. Reach for the model
+class directly only when you need static typing on the
+construction site; the harness boundary is dict-shaped.
 
 Exactly one of `diff` or `files` must be set; `intent` drives the
 `semantic_diff` verifier and is ignored by the deterministic ones.
