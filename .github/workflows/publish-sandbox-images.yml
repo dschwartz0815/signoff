@@ -24,11 +24,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Image paths use ``${{ github.repository_owner }}`` so this
+          # workflow keeps working unchanged across forks and any
+          # future org transfer of this repo. Resolves to e.g.
+          # ``ghcr.io/dschwartz0815/signoff/generic-sandbox`` today.
           - name: generic-sandbox
-            image: ghcr.io/signoff/generic-sandbox
+            image: ghcr.io/${{ github.repository_owner }}/signoff/generic-sandbox
             context: packages/signoff-runtime-docker/images/generic-sandbox
           - name: code-sandbox
-            image: ghcr.io/signoff/code-sandbox
+            image: ghcr.io/${{ github.repository_owner }}/signoff/code-sandbox
             context: packages/signoff-code
     runs-on: ubuntu-latest
     steps:

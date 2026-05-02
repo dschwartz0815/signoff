@@ -33,7 +33,7 @@ runtime_policy:
     memory_limit_mb: 2048
     network: none
     # Operators running against the published image should point at
-    # ``ghcr.io/signoff/code-sandbox:latest`` here; the dev image
+    # ``ghcr.io/dschwartz0815/signoff/code-sandbox:latest`` here; the dev image
     # built locally from packages/signoff-code/Dockerfile is the
     # recommended starting point until you have cosign configured.
     image: signoff/code-sandbox:dev

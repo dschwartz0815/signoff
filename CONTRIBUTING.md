@@ -117,6 +117,29 @@ Full walk-through: [`docs/writing-a-pack.md`](./docs/writing-a-pack.md).
 
 ---
 
+## Maintainer one-time setup
+
+### Making published images public
+
+Images pushed to GHCR by the `publish-sandbox-images` workflow are
+created **private by default** the first time GitHub sees them. The
+workflow doesn't have permission to flip them to public; that's a
+manual step in the package settings UI:
+
+1. Visit `https://github.com/<owner>?tab=packages` (e.g.
+   `https://github.com/dschwartz0815?tab=packages`).
+2. Click each newly-published `signoff/*-sandbox` package.
+3. **Package settings** → **Change visibility** → **Public**.
+
+Repeat once per package per repo owner. After the toggle, the
+`docker pull` commands in the user-facing docs will work without
+authentication.
+
+If you skip this step, the published `:latest` tags exist but a
+fresh `docker pull` returns `denied: requested access to the
+resource is denied` instead of the image. That's the visibility
+gate, not a workflow bug.
+
 ## Reporting bugs
 
 Good bug reports include:

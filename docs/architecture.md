@@ -265,7 +265,7 @@ author populates. Conventions used by shipped verifiers:
 - `runtime`: `"docker"` or `"local"`.
 - `container_id`: first 12 chars of the Docker container, when
   applicable. Ties a verdict back to a specific sandbox run.
-- `image`: e.g. `"ghcr.io/signoff/code-sandbox:latest"`. Ties back
+- `image`: e.g. `"ghcr.io/dschwartz0815/signoff/code-sandbox:latest"`. Ties back
   to a signed, scanned artifact.
 - `model` + `prompt_version`: for judge-backed verifiers. Diffing
   two verdicts across a prompt bump isolates prompt effects from

@@ -39,8 +39,8 @@ Pull the sandbox image (used by `DockerRuntime` to execute the
 verifiers):
 
 ```sh
-docker pull ghcr.io/signoff/code-sandbox:latest
-docker tag  ghcr.io/signoff/code-sandbox:latest signoff/code-sandbox:dev
+docker pull ghcr.io/dschwartz0815/signoff/code-sandbox:latest
+docker tag  ghcr.io/dschwartz0815/signoff/code-sandbox:latest signoff/code-sandbox:dev
 ```
 
 The `:dev` re-tag matches the tag the shipped example config uses

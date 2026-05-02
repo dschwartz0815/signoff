@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # ``signoff-code`` sandbox image.
 #
-# Built and published as ``ghcr.io/signoff/code-sandbox:<version>`` /
+# Built and published as ``ghcr.io/dschwartz0815/signoff/code-sandbox:<version>`` /
 # ``:latest`` by ``.github/workflows/publish-sandbox-images.yml``,
 # signed with cosign at publish time, scanned with trivy.
 #

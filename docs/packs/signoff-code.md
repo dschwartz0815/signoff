@@ -138,7 +138,7 @@ explicitly to override.
 
 ## The sandbox image
 
-`ghcr.io/signoff/code-sandbox:latest` ships with pinned pytest,
+`ghcr.io/dschwartz0815/signoff/code-sandbox:latest` ships with pinned pytest,
 mypy, ruff, coverage, plus git and patch. Non-root signoff user
 (UID 10001), `/workspace` as the bind-mount target, `sleep
 infinity` as the holder. See
@@ -170,7 +170,7 @@ in production deployments.
   deliverable.
 - Tests that need extra Python dependencies require extending the
   sandbox image: write a small Dockerfile that
-  `FROM ghcr.io/signoff/code-sandbox:latest`, `RUN pip install
+  `FROM ghcr.io/dschwartz0815/signoff/code-sandbox:latest`, `RUN pip install
   your-deps`, publish to your own registry, and set
   `runtime_policy.docker.image` to that tag.
 

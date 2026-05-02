@@ -31,7 +31,12 @@ from signoff.verifier import _testing_pack
 from signoff_code import BaseReference, CodeChangeDeliverable
 from signoff_code.prepare import prepare_code_change
 
-_NESTED_TEMPDIR_RE = re.compile(r"signoff-code-[a-z0-9]+")
+# ``tempfile.mkdtemp`` picks suffix chars from
+# ``string.ascii_letters + string.digits + "-_"`` (Python 3.12+),
+# so the regex must allow upper-case + underscore — without that
+# allowance the pattern false-negatives ~5% of the time depending
+# on the random suffix.
+_NESTED_TEMPDIR_RE = re.compile(r"signoff-code-[a-zA-Z0-9_-]+")
 
 
 async def test_prepare_code_change_returns_single_root(tmp_path: Path) -> None:
