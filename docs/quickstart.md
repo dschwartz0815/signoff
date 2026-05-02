@@ -61,9 +61,15 @@ That's the whole install.
 Save the starter config to `signoff.yaml`:
 
 ```sh
-curl -sL https://raw.githubusercontent.com/signoff/signoff/main/examples/code-change.yaml \
+curl -fsSL https://raw.githubusercontent.com/dschwartz0815/signoff/main/examples/code-change.yaml \
      -o signoff.yaml
 ```
+
+> Why `-fsSL` and not `-sL`: the `-f` flag makes curl exit non-zero on
+> 4xx/5xx instead of silently saving the error-page HTML as your
+> "config file"; `-S` keeps the error message visible after `-s`
+> hushes progress. If the URL ever 404s, the failure is loud rather
+> than producing a baffling pydantic error five commands later.
 
 Then run this Python script — it builds a `CodeChangeDeliverable`
 out of two tiny files, verifies it, and prints the verdict:
@@ -171,10 +177,10 @@ signoff-mcp --transport http --host 127.0.0.1 --port 8765 \
 Verify it's up:
 
 ```sh
-curl -s http://127.0.0.1:8765/health
+curl -fsS http://127.0.0.1:8765/health
 # {"status":"ok","harness":"ready","verifier_count":5}
 
-curl -s http://127.0.0.1:8765/version
+curl -fsS http://127.0.0.1:8765/version
 # {"protocol_version":"0.1","harness_version":"0.0.1","mcp_server_version":"0.0.1"}
 ```
 

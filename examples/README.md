@@ -23,7 +23,7 @@ signoff-mcp --transport http --host 127.0.0.1 --port 8765 \
             --config examples/minimal.yaml
 
 # Probe it:
-curl -s http://127.0.0.1:8765/health
+curl -fsS http://127.0.0.1:8765/health
 # {"status":"ok","harness":"ready","verifier_count":0}
 
 # Point your MCP client at it (Claude Code / Cursor / …).

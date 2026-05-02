@@ -23,9 +23,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/signoff/signoff"
-Documentation = "https://github.com/signoff/signoff/tree/main/docs"
-Repository = "https://github.com/signoff/signoff"
+Homepage = "https://github.com/dschwartz0815/signoff"
+Documentation = "https://github.com/dschwartz0815/signoff/tree/main/docs"
+Repository = "https://github.com/dschwartz0815/signoff"
 
 [build-system]
 requires = ["hatchling"]

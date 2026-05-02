@@ -44,7 +44,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/signoff/signoff.git",
+    "url": "git+https://github.com/dschwartz0815/signoff.git",
     "directory": "packages/signoff-sdk-ts"
   }
 }

@@ -119,6 +119,25 @@ Full walk-through: [`docs/writing-a-pack.md`](./docs/writing-a-pack.md).
 
 ## Maintainer one-time setup
 
+### Org-transfer URL audit
+
+The repo currently lives at `github.com/dschwartz0815/signoff`.
+Hardcoded URLs across docs, package metadata, and example
+configs all reflect that path. When the project moves to a
+real `signoff` GitHub org (or any other namespace), the repo
+owner needs to do a one-time search-and-replace before merging
+the transfer:
+
+```sh
+# From the repo root.
+grep -rln 'dschwartz0815/signoff' docs/ README.md packages/ examples/
+# Replace each occurrence with the new <owner>/signoff path.
+```
+
+The CI workflow (`publish-sandbox-images.yml`) already uses
+`${{ github.repository_owner }}` and survives transfers
+unchanged. Only the literal docs / metadata URLs need touching.
+
 ### Why sandbox-image publishes take 20+ minutes
 
 `publish-sandbox-images.yml` builds every sandbox image for both
