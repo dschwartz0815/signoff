@@ -1,6 +1,6 @@
 [project]
 name = "signoff-runtime-docker"
-version = "0.0.1"
+version = "0.0.2"
 description = "Docker-backed sandbox Runtime for Signoff verifiers."
 readme = "README.md"
 requires-python = ">=3.11"

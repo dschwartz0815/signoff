@@ -1,6 +1,6 @@
 [project]
 name = "signoff-core"
-version = "0.0.1"
+version = "0.0.2"
 description = "Core engine for Signoff — the verification layer for AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
