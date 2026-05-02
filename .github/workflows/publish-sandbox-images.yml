@@ -38,6 +38,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # QEMU lets the amd64 runner emulate arm64 during the
+      # multi-arch build below. amd64 is the runner's native arch
+      # and doesn't need emulation, so only arm64 is requested. The
+      # arm64 leg runs ~4–5x slower than the native amd64 leg
+      # (everything goes through QEMU); expect total wall-clock to
+      # land around 18–25 minutes per image versus ~6 native-only.
+      # Documented in CONTRIBUTING.md § "Why sandbox-image publishes
+      # take 20+ minutes".
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -58,23 +71,25 @@ jobs:
           echo "${{ matrix.image }}:latest" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push ${{ matrix.name }}
-        id: build
+      # ---- Pattern (a): amd64-only local build for trivy ----
+      #
+      # Trivy scans a single image manifest, not a manifest list,
+      # so we build the native amd64 image first with ``load: true``
+      # to make it available to the local Docker daemon, run trivy
+      # against the local tag, and only then do the cross-arch push.
+      # The amd64 build is fast (native) and shares its layers with
+      # the multi-arch push step via the buildx cache, so the
+      # double build is much cheaper than it looks at first glance.
+      - name: Build amd64 image (for trivy scan)
+        id: build_scan
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
-          provenance: true
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign with cosign (keyless, OIDC)
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          cosign sign --yes "${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+          load: true
+          tags: ${{ matrix.name }}:trivy-scan
+          platforms: linux/amd64
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
       - name: Install trivy
         uses: aquasecurity/setup-trivy@v0.2.6
@@ -84,4 +99,32 @@ jobs:
       - name: Scan for CRITICAL vulns
         run: |
           trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed \
-            "${{ matrix.image }}@${{ steps.build.outputs.digest }}"
+            "${{ matrix.name }}:trivy-scan"
+
+      # ---- Multi-arch build + push ----
+      #
+      # Multi-arch images can't be ``load``-ed into the local Docker
+      # daemon — manifest lists are a registry-only construct — so
+      # the push happens here, after trivy has signed off on the
+      # amd64 surface above. Cosign signs the manifest-list digest,
+      # which covers both platform manifests at once.
+      - name: Build and push multi-arch ${{ matrix.name }}
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign with cosign (keyless, OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign --yes "${{ matrix.image }}@${{ steps.build.outputs.digest }}"

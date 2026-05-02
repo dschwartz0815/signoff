@@ -119,6 +119,39 @@ Full walk-through: [`docs/writing-a-pack.md`](./docs/writing-a-pack.md).
 
 ## Maintainer one-time setup
 
+### Why sandbox-image publishes take 20+ minutes
+
+`publish-sandbox-images.yml` builds every sandbox image for both
+`linux/amd64` and `linux/arm64`. Apple Silicon laptops (the
+majority of the contributor population) need the arm64 manifest
+to `docker pull` without a `--platform` flag; without it the pull
+fails with `no matching manifest for linux/arm64/v8`.
+
+GitHub-hosted runners are amd64. The arm64 leg runs through QEMU
+emulation, which is roughly **4–5× slower than native** for the
+kinds of work these Dockerfiles do (apt install, pip install,
+COPY a small build context). Expect total wall-clock per image
+to land around **18–25 minutes** versus ~6 minutes when we built
+amd64-only.
+
+Two consequences:
+
+- A workflow run that builds both `generic-sandbox` and
+  `code-sandbox` can take 30–50 minutes end-to-end. That's why
+  the trigger paths are narrow (touching the workflow file or one
+  of the two `Dockerfile`s) — we don't run this on every push.
+- If a build hangs partway through, the rebuild rerun cost is
+  the full 20 minutes per image. Monitor the run, don't fire-
+  and-forget.
+
+The trade isn't optional: the slowdown is the cost of letting
+Apple Silicon developers run the quickstart at all. If the build
+time becomes a real bottleneck, the next move is splitting the
+matrix across architecture-native runners (`ubuntu-latest` for
+amd64, `ubuntu-22.04-arm64` for arm64) and stitching the manifest
+list together with a final job. That's a follow-up; today's
+single-runner-with-QEMU shape keeps the workflow simple.
+
 ### Making published images public
 
 Images pushed to GHCR by the `publish-sandbox-images` workflow are
