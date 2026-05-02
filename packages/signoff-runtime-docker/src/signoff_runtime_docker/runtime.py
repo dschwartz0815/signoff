@@ -24,7 +24,7 @@ import time
 import traceback
 import uuid
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from signoff.models import Severity, VerifierResult
 from signoff.runtime.base import (
@@ -196,9 +196,15 @@ class DockerRuntime:
                     stderr_max_bytes=self._config.exec_stderr_max_bytes,
                 )
                 wrapped = wrap_context(ctx, docker_exec)
+                # ``DockerVerifierContext`` is structurally a
+                # ``VerifierContext`` (delegates everything except
+                # exec) but doesn't inherit — see context.py for why
+                # the inheritance was removed. Cast for the typed
+                # verifier signature; runtime behaviour is identical.
+                wrapped_as_ctx = cast("VerifierContext", wrapped)
                 try:
                     result = await asyncio.wait_for(
-                        fn(claim, wrapped), timeout=policy.timeout_seconds
+                        fn(claim, wrapped_as_ctx), timeout=policy.timeout_seconds
                     )
                 except asyncio.CancelledError:
                     raise
