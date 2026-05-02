@@ -109,12 +109,25 @@ On every container `DockerRuntime` creates:
 Images are verified with `cosign verify` before first use. The harness requires a certificate identity regex and OIDC issuer in config:
 
 ```yaml
-# SIGNOFF_DOCKER_VERIFY_SIGNATURES=true (the default)
+# SIGNOFF_DOCKER_VERIFY_SIGNATURES=auto (the default)
 # SIGNOFF_DOCKER_SIGNATURE_CERT_IDENTITY_REGEXP=^https://github\\.com/signoff/
 # SIGNOFF_DOCKER_SIGNATURE_CERT_OIDC_ISSUER=https://token.actions.githubusercontent.com
 ```
 
-Missing `cosign` on `PATH` while `verify_signatures=True` fails fast at `prepare()` time with a clear error (`ImageVerificationNotConfiguredError`) — the harness never runs with unverified images. Setting `verify_signatures=False` is supported for locally-built images only and emits a prominent WARNING at startup.
+`SIGNOFF_DOCKER_VERIFY_SIGNATURES` has three modes:
+
+| Value     | Behavior                                                                                                       | Use when                                                                  |
+|-----------|----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `auto`    | At construction, probe `cosign` on `PATH`. Present → verify every image. Absent → log a WARNING and proceed.   | Local dev, quickstarts, dogfooding. The default.                          |
+| `true`    | Hard contract. Cosign missing at verify time raises `ImageVerificationNotConfiguredError` and the harness halts. | Production. Pins the strict invariant that unsigned images never run.     |
+| `false`   | Skip verification entirely. Constructor logs a WARNING naming the opt-out so it surfaces in audit logs.        | Locally-built images only.                                                |
+
+The `auto` default is what makes the [quickstart](./quickstart.md) work on a fresh machine that doesn't yet have `cosign` installed. Production deployments should set `SIGNOFF_DOCKER_VERIFY_SIGNATURES=true` explicitly so a missing cosign binary is a loud failure rather than a silent relaxation. The startup log line tells you which path the harness took:
+
+- `auto and cosign is on PATH — image signatures WILL be verified.` (INFO)
+- `auto and cosign is NOT on PATH — proceeding WITHOUT signature verification.` (WARNING)
+- `verify_signatures=False — images will be used without cosign verification.` (WARNING)
+- (no log on `verify_signatures=True`; missing cosign surfaces at the first verify call.)
 
 ### Routing through `ctx.exec`
 

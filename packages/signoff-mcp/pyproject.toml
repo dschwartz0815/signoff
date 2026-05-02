@@ -18,8 +18,8 @@ dependencies = [
 signoff-mcp = "signoff_mcp.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/signoff/signoff"
-Repository = "https://github.com/signoff/signoff"
+Homepage = "https://github.com/dschwartz0815/signoff"
+Repository = "https://github.com/dschwartz0815/signoff"
 
 [build-system]
 requires = ["hatchling"]

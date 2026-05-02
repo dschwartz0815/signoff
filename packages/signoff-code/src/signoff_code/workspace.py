@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import tempfile
 from collections.abc import Iterable
@@ -91,6 +92,15 @@ class Workspace:
         _enforce_size_cap(deliverable, max_bytes=max_bytes)
 
         root = Path(tempfile.mkdtemp(prefix="signoff-code-", dir=_as_str(tmp_root)))
+        # ``mkdtemp`` deliberately creates the directory with mode
+        # 0o700 (owner-only) — the right default for "private temp
+        # space" but the wrong default for "tree we're about to
+        # bind-mount into a non-root sandbox container." Open it up
+        # immediately so anything that recurses below (``copy_tree``,
+        # ``mkdir``, ``write_text``) inherits a traversable parent;
+        # the final ``_make_world_readable`` walk after all writers
+        # have run mops up the entries themselves.
+        os.chmod(root, 0o755)
         ws = cls(root)
         try:
             if deliverable.base is not None:
@@ -101,6 +111,17 @@ class Workspace:
                 ws._write_files(deliverable.files)
             if not deliverable.changed_paths:
                 deliverable.changed_paths = deliverable.derive_changed_paths()
+            # Final permission pass. Three writers feed this tree —
+            # ``_copy_tree`` (which preserves source perms and so can
+            # land 0o600 files from a tightly-locked-down checkout),
+            # ``_apply_diff`` (writes via ``patch`` honouring the
+            # umask, often 0o644 already but not guaranteed), and
+            # ``_write_files`` (``Path.write_text`` honours the
+            # umask too). Centralising the chmod here is cheaper
+            # than threading a mode through every writer and keeps
+            # the F9 contract — "everything verifiers see is readable
+            # from UID 10001" — auditable in one function.
+            await asyncio.to_thread(_make_world_readable, root)
         except WorkspaceError:
             await ws.cleanup()
             raise
@@ -228,6 +249,53 @@ def _enforce_size_cap(deliverable: CodeChangeDeliverable, *, max_bytes: int) -> 
             f"CodeChangeDeliverable body is {total} bytes; max is {max_bytes}. "
             "Raise `max_bytes=` on Workspace.materialize if this is legitimate."
         )
+
+
+def _make_world_readable(root: Path) -> None:
+    """Recursively chmod ``root`` so any UID can traverse + read it.
+
+    The materialised workspace is bind-mounted into the sandbox
+    container that ``DockerRuntime`` runs verifiers under. That
+    container runs as the unprivileged user ``signoff:signoff``
+    (UID 10001 — see ``CLAUDE.md`` §9.4 and the published sandbox
+    image's ``USER`` directive). With a 0o700 tempdir + 0o600 files
+    (the default of ``mkdtemp`` and of ``shutil.copy2`` against a
+    locked-down checkout, respectively), the bind-mounted tree
+    appears to that UID as ``Permission denied`` for every read.
+
+    Docker Desktop on macOS papers over this with VM-level UID
+    translation, which is why the bug shipped — the maintainer's
+    laptop happily ran the quickstart, and Linux users (Codespaces,
+    every CI runner, every self-hosted deployment) hit the failure
+    out of the gate.
+
+    Mode 0o755 on directories and 0o644 on files is the minimum
+    viable contract: traversable + readable by anyone, writable
+    only by the owner. Verifiers don't need to write outside their
+    own ``ctx.workspace``-rooted working area, so we don't grant
+    group/other write.
+    """
+    os.chmod(root, 0o755)
+    for dirpath, dirnames, filenames in os.walk(root):
+        for d in dirnames:
+            sub = os.path.join(dirpath, d)
+            try:
+                os.chmod(sub, 0o755)
+            except OSError as exc:
+                # Don't fail materialisation on a chmod miss — log
+                # and proceed. Symlinks, race conditions on
+                # concurrent ``os.walk``s, and exotic filesystems
+                # (NFS without root_squash, FUSE mounts that drop
+                # chmod) are the realistic causes. The verifier
+                # will surface the access error if the target is
+                # actually unreadable.
+                _logger.debug("chmod 0o755 on dir %s failed: %s", sub, exc)
+        for f in filenames:
+            target = os.path.join(dirpath, f)
+            try:
+                os.chmod(target, 0o644)
+            except OSError as exc:
+                _logger.debug("chmod 0o644 on file %s failed: %s", target, exc)
 
 
 def _copy_tree(src: Path, dst: Path) -> None:

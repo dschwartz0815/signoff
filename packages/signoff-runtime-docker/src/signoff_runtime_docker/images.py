@@ -1,14 +1,24 @@
 """Image lifecycle management for :class:`DockerRuntime`.
 
 :class:`ImageManager` handles pulls under the configured policy and
-(by default) verifies cosign signatures on every image before first
-use. Verification results are cached for the harness lifetime.
+verifies cosign signatures before first use. Verification results
+are cached for the harness lifetime.
 
-Cosign is invoked via subprocess. When ``verify_signatures=True`` and
-``cosign`` is missing on ``PATH``, :meth:`ensure` raises
-:class:`ImageVerificationNotConfiguredError` at prepare time — fail
-fast rather than mid-run. When ``verify_signatures=False`` the
-constructor logs a WARNING naming the config that opted in.
+Three signature-verification modes, settable via
+``DockerRuntimeConfig.verify_signatures`` or
+``SIGNOFF_DOCKER_VERIFY_SIGNATURES``:
+
+- ``"auto"`` (default) — at construction, probe ``cosign`` on
+  ``PATH``. Present → verify every image. Absent → log a WARNING
+  once and proceed without verification. Trades a strict default
+  for a quickstart that doesn't dead-end on "install cosign first."
+- ``True`` — hard contract. Cosign missing at verify time raises
+  :class:`ImageVerificationNotConfiguredError`. The right setting
+  for production where unsigned images must never run.
+- ``False`` — skip verification entirely. Constructor logs a
+  WARNING naming the opt-out so it shows up in audit logs.
+
+Cosign is invoked via subprocess.
 """
 
 from __future__ import annotations
@@ -49,13 +59,51 @@ class ImageManager:
         self._config = config
         self._cosign_cmd = cosign_cmd
         self._verified: set[str] = set()
-        if not config.verify_signatures:
+        # Resolve the three-way ``verify_signatures`` config to a final
+        # bool once at construction so :meth:`ensure` doesn't re-probe
+        # PATH on every image. The "auto" branch is the only one that
+        # consults ``shutil.which``; explicit ``True``/``False`` keep
+        # their existing strict semantics (``_verify_signature`` still
+        # hard-fails on missing cosign when the user explicitly set
+        # ``verify_signatures=True`` — that's the contract they asked
+        # for and "missing cosign" is a launch-blocker config bug they
+        # want loud, not silently skipped).
+        self._effective_verify = self._resolve_verify_mode()
+
+    def _resolve_verify_mode(self) -> bool:
+        raw = self._config.verify_signatures
+        if raw is False:
             _logger.warning(
                 "ImageManager initialised with verify_signatures=False — "
                 "images will be used without cosign verification. This is "
                 "unsafe for any image you did not build yourself; set "
                 "SIGNOFF_DOCKER_VERIFY_SIGNATURES=true in production."
             )
+            return False
+        if raw is True:
+            # Don't pre-probe PATH — _verify_signature does that and
+            # we want the existing "fail loudly at verify time" path
+            # for explicit-true callers. They asked for the contract,
+            # they get the contract.
+            return True
+        # raw == "auto": detect once, log the resolution.
+        if shutil.which(self._cosign_cmd) is not None:
+            _logger.info(
+                "ImageManager: verify_signatures=auto and cosign is on PATH "
+                "— image signatures WILL be verified."
+            )
+            return True
+        _logger.warning(
+            "ImageManager: verify_signatures=auto and cosign is NOT on PATH "
+            "— proceeding WITHOUT signature verification. This is fine for "
+            "a local quickstart on a trusted machine but UNSAFE in "
+            "production. Install cosign "
+            "(https://github.com/sigstore/cosign) to enable verification, "
+            "set SIGNOFF_DOCKER_VERIFY_SIGNATURES=true to require it (and "
+            "fail loudly when missing), or set =false to silence this "
+            "warning."
+        )
+        return False
 
     async def ensure(self, image: str) -> None:
         """Ensure ``image`` is present locally, pull if policy allows,
@@ -77,7 +125,7 @@ class ImageManager:
                 "pull_policy='never'. Pre-pull the image or "
                 "change pull_policy."
             )
-        if self._config.verify_signatures:
+        if self._effective_verify:
             await self._verify_once(image)
 
     def invalidate(self, image: str | None = None) -> None:

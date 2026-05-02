@@ -241,3 +241,93 @@ def test_verify_disabled_logs_warning_at_construction(
     with caplog.at_level(logging.WARNING, logger="signoff_runtime_docker.images"):
         ImageManager(MagicMock(), _cfg(verify_signatures=False))
     assert any("verify_signatures=False" in rec.message for rec in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# verify_signatures="auto" smart-detect (F3)
+#
+# The default mode. The harness probes ``cosign`` on PATH at construction
+# and resolves auto → True (verify) or auto → False (warn-and-proceed)
+# based on what it finds. Explicit ``True``/``False`` keep their existing
+# semantics so production deployments that pin the strict contract aren't
+# silently relaxed.
+# ---------------------------------------------------------------------------
+
+
+async def test_auto_mode_with_cosign_present_verifies(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """auto + cosign on PATH → verify every image, no WARNING."""
+    import logging
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda _c: "/usr/local/bin/cosign")
+    client = _client(present=True)
+    with caplog.at_level(logging.INFO, logger="signoff_runtime_docker.images"):
+        # Use a fresh DockerRuntimeConfig with the actual default to
+        # exercise the public path (rather than going through ``_cfg``
+        # which always overrides verify_signatures).
+        mgr = ImageManager(client, DockerRuntimeConfig(verify_signatures="auto"))
+    # Constructor logs INFO ("WILL be verified"), not WARNING.
+    assert any(
+        "auto and cosign is on PATH" in rec.message and rec.levelname == "INFO"
+        for rec in caplog.records
+    )
+    verify = AsyncMock()
+    monkeypatch.setattr(mgr, "_verify_signature", verify)
+    await mgr.ensure("sig/x:1")
+    assert verify.await_count == 1
+
+
+async def test_auto_mode_with_cosign_missing_skips_with_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """auto + cosign absent → skip verification, log a WARNING.
+
+    This is the path that unblocks the quickstart on a fresh machine
+    that doesn't yet have cosign installed: the user gets verdicts
+    instead of an opaque ``ImageVerificationNotConfiguredError``.
+    """
+    import logging
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda _c: None)
+    client = _client(present=True)
+    with caplog.at_level(logging.WARNING, logger="signoff_runtime_docker.images"):
+        mgr = ImageManager(client, DockerRuntimeConfig(verify_signatures="auto"))
+    assert any("cosign is NOT on PATH" in rec.message for rec in caplog.records), [
+        r.message for r in caplog.records
+    ]
+    verify = AsyncMock()
+    monkeypatch.setattr(mgr, "_verify_signature", verify)
+    await mgr.ensure("sig/x:1")
+    assert verify.await_count == 0
+
+
+async def test_explicit_true_with_cosign_missing_still_hard_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit ``verify_signatures=True`` keeps the strict contract:
+    cosign missing at verify time raises rather than silently relaxing
+    to auto's warn-and-proceed. Production deployments rely on this."""
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda _c: None)
+    client = _client(present=True)
+    mgr = ImageManager(
+        client,
+        DockerRuntimeConfig(verify_signatures=True),
+        cosign_cmd="cosign-not-installed",
+    )
+    with pytest.raises(ImageVerificationNotConfiguredError, match="cosign"):
+        await mgr.ensure("sig/x:1")
+
+
+def test_auto_mode_is_the_default() -> None:
+    """The launch fix flips the default from True (hard contract) to
+    auto (smart-detect). Pin that here so a future config refactor
+    doesn't silently regress the default and re-break the quickstart."""
+    cfg = DockerRuntimeConfig()
+    assert cfg.verify_signatures == "auto"

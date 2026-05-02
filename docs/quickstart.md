@@ -23,7 +23,7 @@ machine with the prerequisites below.
 
 Optional:
 
-- **`cosign`** — only if you set `SIGNOFF_DOCKER_VERIFY_SIGNATURES=true` (we keep it off for the quickstart; production deployments turn it on, see [`docs/runtimes.md`](./runtimes.md) § DockerRuntime).
+- **`cosign`** — optional. The default is `SIGNOFF_DOCKER_VERIFY_SIGNATURES=auto`: `DockerRuntime` checks for `cosign` on `PATH` at startup and verifies the sandbox image signature when it's there, or logs a WARNING and proceeds without verification when it isn't. The quickstart works either way. Set `SIGNOFF_DOCKER_VERIFY_SIGNATURES=true` to require verification (and fail loudly when cosign is missing) — the right setting for production. See [`docs/runtimes.md`](./runtimes.md) § DockerRuntime for the full mode matrix.
 - **`git`** — to clone the repo if you want to run against the shipped fixtures.
 
 ---
@@ -61,9 +61,15 @@ That's the whole install.
 Save the starter config to `signoff.yaml`:
 
 ```sh
-curl -sL https://raw.githubusercontent.com/signoff/signoff/main/examples/code-change.yaml \
+curl -fsSL https://raw.githubusercontent.com/dschwartz0815/signoff/main/examples/code-change.yaml \
      -o signoff.yaml
 ```
+
+> Why `-fsSL` and not `-sL`: the `-f` flag makes curl exit non-zero on
+> 4xx/5xx instead of silently saving the error-page HTML as your
+> "config file"; `-S` keeps the error message visible after `-s`
+> hushes progress. If the URL ever 404s, the failure is loud rather
+> than producing a baffling pydantic error five commands later.
 
 Then run this Python script — it builds a `CodeChangeDeliverable`
 out of two tiny files, verifies it, and prints the verdict:
@@ -71,27 +77,49 @@ out of two tiny files, verifies it, and prints the verdict:
 ```python
 # quickstart.py
 import asyncio
+from pathlib import Path
+
 from signoff import Deliverable, Harness
-from signoff_code import CodeChangeDeliverable
+
 
 async def main() -> None:
+    # Write the source files to the current directory so the
+    # ``local_path`` base reference below points at real content.
+    # signoff-code copies (never symlinks) this tree into a temp
+    # workspace, so the on-disk files are seed material — verifier
+    # mutations can't leak back.
+    Path("calculator.py").write_text(
+        "def add(a: int, b: int) -> int:\n"
+        "    return a + b\n"
+    )
+    Path("test_calculator.py").write_text(
+        "from calculator import add\n"
+        "def test_add() -> None:\n"
+        "    assert add(2, 3) == 5\n"
+    )
+
+    # ``Deliverable.content`` is the protocol-level payload — a plain
+    # dict that the registered ``code_change`` preparer validates into
+    # a ``CodeChangeDeliverable``. Pass the dict directly; don't wrap
+    # it in the model class (the harness does that for you, and a
+    # double-wrap trips the preparer's "unexpected content type"
+    # warning and skips workspace materialisation).
     deliverable = Deliverable(
         id="dlv_quickstart",
         kind="code_change",
-        content=CodeChangeDeliverable(
-            intent="Add a small calculator module with passing tests.",
-            files={
-                "calculator.py": (
-                    "def add(a: int, b: int) -> int:\n"
-                    "    return a + b\n"
-                ),
-                "test_calculator.py": (
-                    "from calculator import add\n"
-                    "def test_add() -> None:\n"
-                    "    assert add(2, 3) == 5\n"
-                ),
+        content={
+            "intent": "Add a small calculator module with passing tests.",
+            # ``local_path`` says "treat <value> as the pre-change
+            # snapshot." For the quickstart that's the cwd we just
+            # wrote the two files into. ``files`` then overlays the
+            # final state — here it's identical to base, which is the
+            # normal pattern when you've already written the change.
+            "base": {"kind": "local_path", "value": str(Path.cwd())},
+            "files": {
+                "calculator.py": Path("calculator.py").read_text(),
+                "test_calculator.py": Path("test_calculator.py").read_text(),
             },
-        ),
+        },
     )
     async with await Harness.from_config_path("signoff.yaml") as harness:
         verdict = await harness.verify(deliverable, claims=[])
@@ -105,10 +133,15 @@ async def main() -> None:
         print(f"  {flag} {r.verifier:40}  {r.severity}")
     if verdict.feedback_packet:
         print("feedback:")
+        # ``BlockerEntry.issue`` holds the verifier's failure reason;
+        # ``suggested_repair`` is the actionable next step. Both are
+        # populated for every blocker — that's the contract the
+        # feedback-packet builder enforces.
         for b in verdict.feedback_packet.blockers:
-            print(f"  BLOCKER {b.verifier}: {b.reason}")
+            print(f"  BLOCKER {b.verifier}: {b.issue}")
             if b.suggested_repair:
                 print(f"          suggest: {b.suggested_repair}")
+
 
 asyncio.run(main())
 ```
@@ -171,10 +204,10 @@ signoff-mcp --transport http --host 127.0.0.1 --port 8765 \
 Verify it's up:
 
 ```sh
-curl -s http://127.0.0.1:8765/health
+curl -fsS http://127.0.0.1:8765/health
 # {"status":"ok","harness":"ready","verifier_count":5}
 
-curl -s http://127.0.0.1:8765/version
+curl -fsS http://127.0.0.1:8765/version
 # {"protocol_version":"0.1","harness_version":"0.0.1","mcp_server_version":"0.0.1"}
 ```
 

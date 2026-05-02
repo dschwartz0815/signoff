@@ -23,7 +23,7 @@ signoff-mcp --transport http --host 127.0.0.1 --port 8765 \
             --config examples/minimal.yaml
 
 # Probe it:
-curl -s http://127.0.0.1:8765/health
+curl -fsS http://127.0.0.1:8765/health
 # {"status":"ok","harness":"ready","verifier_count":0}
 
 # Point your MCP client at it (Claude Code / Cursor / …).
@@ -48,8 +48,9 @@ walkthrough](../docs/quickstart.md) uses.
 **How to run it.** Four commands:
 
 ```sh
-# Build the sandbox image (once per machine):
-docker build -t signoff/code-sandbox:dev packages/signoff-code
+# Pull the published sandbox image (once per machine — the example
+# config's runtime_policy.docker.image points at this same tag):
+docker pull ghcr.io/dschwartz0815/signoff/code-sandbox:latest
 
 # Export an API key (for semantic_diff):
 export SIGNOFF_JUDGE_API_KEY=sk-ant-...
@@ -61,15 +62,21 @@ signoff-mcp --transport http --host 127.0.0.1 --port 8765 \
 # (Optional) smoke-check from Python:
 python - <<'PY'
 import asyncio
+from pathlib import Path
+
 from signoff import Deliverable, Harness
-from signoff_code import CodeChangeDeliverable
+
 
 async def main():
+    Path("x.py").write_text("x = 1\n")
     d = Deliverable(
-        id="dlv_smoke", kind="code_change",
-        content=CodeChangeDeliverable(
-            intent="Add trivial calculator.", files={"x.py": "x = 1\n"},
-        ),
+        id="dlv_smoke",
+        kind="code_change",
+        content={
+            "intent": "Add trivial calculator.",
+            "base": {"kind": "local_path", "value": str(Path.cwd())},
+            "files": {"x.py": "x = 1\n"},
+        },
     )
     async with await Harness.from_config_path("examples/code-change.yaml") as h:
         v = await h.verify(d, claims=[])

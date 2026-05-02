@@ -26,8 +26,8 @@ signoff-code = "signoff_code.defaults:load"
 code_change = "signoff_code.prepare:prepare_code_change"
 
 [project.urls]
-Homepage = "https://github.com/signoff/signoff"
-Repository = "https://github.com/signoff/signoff"
+Homepage = "https://github.com/dschwartz0815/signoff"
+Repository = "https://github.com/dschwartz0815/signoff"
 
 [build-system]
 requires = ["hatchling"]
