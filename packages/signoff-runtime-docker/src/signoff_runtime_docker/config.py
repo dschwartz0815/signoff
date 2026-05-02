@@ -43,7 +43,23 @@ class DockerRuntimeConfig(BaseSettings):
 
     default_image: str = "ghcr.io/dschwartz0815/signoff/generic-sandbox:latest"
     pull_policy: Literal["always", "if_not_present", "never"] = "if_not_present"
-    verify_signatures: bool = True
+    #: Three-mode signature-verification gate:
+    #:
+    #: - ``"auto"`` (default): :class:`ImageManager` probes ``cosign``
+    #:   on PATH at construction. Present → verify every image. Absent
+    #:   → log a WARNING and proceed without verification. Right
+    #:   default for a quickstart on a trusted machine where the
+    #:   "install cosign" prerequisite is the highest-friction step.
+    #: - ``True``: hard contract. Cosign missing at verify time raises
+    #:   :class:`ImageVerificationNotConfiguredError`. Use this in
+    #:   production deployments where unsigned images must never run.
+    #: - ``False``: skip verification entirely, logging a WARNING at
+    #:   construction. Use only for images you built yourself.
+    #:
+    #: ``SIGNOFF_DOCKER_VERIFY_SIGNATURES`` accepts ``auto`` /
+    #: ``true`` / ``false`` (case-insensitive — pydantic-settings
+    #: handles the bool coercion).
+    verify_signatures: bool | Literal["auto"] = "auto"
     #: Must match :literal:`cosign verify --certificate-identity-regexp`
     #: exactly — narrow this down in production.
     signature_cert_identity_regexp: str = r"^https://github\.com/signoff/"

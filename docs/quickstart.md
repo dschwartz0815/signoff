@@ -23,7 +23,7 @@ machine with the prerequisites below.
 
 Optional:
 
-- **`cosign`** — only if you set `SIGNOFF_DOCKER_VERIFY_SIGNATURES=true` (we keep it off for the quickstart; production deployments turn it on, see [`docs/runtimes.md`](./runtimes.md) § DockerRuntime).
+- **`cosign`** — optional. The default is `SIGNOFF_DOCKER_VERIFY_SIGNATURES=auto`: `DockerRuntime` checks for `cosign` on `PATH` at startup and verifies the sandbox image signature when it's there, or logs a WARNING and proceeds without verification when it isn't. The quickstart works either way. Set `SIGNOFF_DOCKER_VERIFY_SIGNATURES=true` to require verification (and fail loudly when cosign is missing) — the right setting for production. See [`docs/runtimes.md`](./runtimes.md) § DockerRuntime for the full mode matrix.
 - **`git`** — to clone the repo if you want to run against the shipped fixtures.
 
 ---
