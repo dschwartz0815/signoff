@@ -35,6 +35,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signoff_code"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/signoff_code/default_config.yaml" = "signoff_code/default_config.yaml"
+# NOTE: ``packages`` already includes everything under
+# ``src/signoff_code`` — including ``default_config.yaml`` and
+# the prompts/ tree. Don't add a
+# ``[tool.hatch.build.targets.wheel.force-include]`` block here:
+# at best it's redundant, at worst it duplicates every file in
+# the wheel zip (see signoff-judge's prior version of this same
+# pattern, which produced ``UserWarning: Duplicate name:`` on
+# every prompt file). Verify with:
+#   $ rm -rf dist && uv build --package signoff-code
+#   $ unzip -l dist/signoff_code-*.whl | grep default_config
+# default_config.yaml should appear exactly once.
