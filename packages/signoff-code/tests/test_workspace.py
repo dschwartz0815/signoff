@@ -200,9 +200,7 @@ async def test_materialize_subdirs_are_world_traversable(tmp_path: Path) -> None
     )
     saved_umask = os.umask(0o077)
     try:
-        async with await Workspace.materialize(
-            d, http=FakeHttpClient(), tmp_root=tmp_path
-        ) as ws:
+        async with await Workspace.materialize(d, http=FakeHttpClient(), tmp_root=tmp_path) as ws:
             for rel in ("pkg", "pkg/sub"):
                 mode = stat.S_IMODE(os.stat(ws.root / rel).st_mode)
                 assert mode & 0o001, f"{rel} mode {oct(mode)} missing world-traverse"

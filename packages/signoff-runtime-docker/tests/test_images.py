@@ -297,10 +297,9 @@ async def test_auto_mode_with_cosign_missing_skips_with_warning(
     client = _client(present=True)
     with caplog.at_level(logging.WARNING, logger="signoff_runtime_docker.images"):
         mgr = ImageManager(client, DockerRuntimeConfig(verify_signatures="auto"))
-    assert any(
-        "cosign is NOT on PATH" in rec.message
-        for rec in caplog.records
-    ), [r.message for r in caplog.records]
+    assert any("cosign is NOT on PATH" in rec.message for rec in caplog.records), [
+        r.message for r in caplog.records
+    ]
     verify = AsyncMock()
     monkeypatch.setattr(mgr, "_verify_signature", verify)
     await mgr.ensure("sig/x:1")
