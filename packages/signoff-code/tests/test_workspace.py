@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -119,3 +122,90 @@ async def test_git_sha_base_raises_clear_error(tmp_path: Path) -> None:
     )
     with pytest.raises(WorkspaceError, match="git_sha base"):
         await Workspace.materialize(d, http=FakeHttpClient(), tmp_root=tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# F9 regression: workspace must be readable from the sandbox's non-root UID.
+# DockerRuntime bind-mounts ``ws.root`` into a container running as
+# UID 10001 (signoff:signoff per the published code-sandbox image). The
+# old materialisation path left ``mkdtemp``-created dirs at 0o700 and
+# ``shutil.copy2``-copied files at whatever mode the source carried,
+# which made the tree opaque to the sandbox UID on Linux. Docker Desktop
+# on macOS hides the issue with VM UID translation, so we explicitly
+# skip these tests on platforms where POSIX mode bits don't apply
+# (Windows) and assert against the host filesystem's view directly.
+# ---------------------------------------------------------------------------
+
+
+pytestmark_posix = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX permission bits are not enforced on Windows",
+)
+
+
+@pytestmark_posix
+async def test_materialize_root_is_world_traversable(tmp_path: Path) -> None:
+    """Root tempdir must have the ``o+x`` bit set so a non-root
+    container UID can ``cd`` into it. Without this, every verifier
+    in the pack fails with ``Permission denied`` on Linux."""
+    d = CodeChangeDeliverable(intent="x", files={"a.py": "a = 1\n"})
+    async with await Workspace.materialize(d, http=FakeHttpClient(), tmp_root=tmp_path) as ws:
+        mode = stat.S_IMODE(os.stat(ws.root).st_mode)
+        assert mode & 0o001, f"root mode {oct(mode)} missing world-traverse"
+        assert mode & 0o004, f"root mode {oct(mode)} missing world-read"
+
+
+@pytestmark_posix
+async def test_materialize_files_are_world_readable(tmp_path: Path) -> None:
+    """Every file written into the workspace — by the ``files`` map,
+    by ``_copy_tree`` from a base, or by ``patch`` applying a diff —
+    must end up with ``o+r`` so the sandbox UID can read it."""
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "seed.py").write_text("seed = 1\n")
+    # Belt-and-braces: lock the seed down to owner-only the way a
+    # carefully-permissioned checkout might. The fix has to override.
+    os.chmod(base / "seed.py", 0o600)
+
+    d = CodeChangeDeliverable(
+        intent="copy + add",
+        base=BaseReference(kind="local_path", value=str(base)),
+        files={"added.py": "added = 1\n", "pkg/nested.py": "n = 1\n"},
+    )
+    async with await Workspace.materialize(d, http=FakeHttpClient(), tmp_root=tmp_path) as ws:
+        for rel in ("seed.py", "added.py", "pkg/nested.py"):
+            mode = stat.S_IMODE(os.stat(ws.root / rel).st_mode)
+            assert mode & 0o004, f"{rel} mode {oct(mode)} missing world-read"
+
+
+@pytestmark_posix
+async def test_materialize_subdirs_are_world_traversable(tmp_path: Path) -> None:
+    """Subdirectories created by ``files`` writes (or copied from a
+    base) must also be traversable from any UID; a 0o700 ``pkg/``
+    in the middle of the path is just as fatal as a 0o700 root.
+
+    Force a strict umask for the duration of the test so the
+    assertion isn't accidentally satisfied by the default 0o022
+    umask making ``mkdir(parents=True)`` already-world-readable
+    — a CI container or security-hardened system can ship with
+    umask 0o077, which is the failure mode this regression
+    actually catches."""
+    d = CodeChangeDeliverable(
+        intent="nested",
+        files={
+            "pkg/__init__.py": "",
+            "pkg/sub/__init__.py": "",
+            "pkg/sub/mod.py": "v = 1\n",
+        },
+    )
+    saved_umask = os.umask(0o077)
+    try:
+        async with await Workspace.materialize(
+            d, http=FakeHttpClient(), tmp_root=tmp_path
+        ) as ws:
+            for rel in ("pkg", "pkg/sub"):
+                mode = stat.S_IMODE(os.stat(ws.root / rel).st_mode)
+                assert mode & 0o001, f"{rel} mode {oct(mode)} missing world-traverse"
+                assert mode & 0o004, f"{rel} mode {oct(mode)} missing world-read"
+    finally:
+        os.umask(saved_umask)
