@@ -66,7 +66,7 @@ Walk-throughs with real inputs and verdicts in [`docs/gallery.md`](./docs/galler
 ```sh
 pip install signoff-core signoff-mcp signoff-http signoff-judge \
             signoff-runtime-docker signoff-code
-docker pull ghcr.io/signoff/code-sandbox:latest
+docker pull ghcr.io/dschwartz0815/signoff/code-sandbox:latest
 export SIGNOFF_JUDGE_API_KEY=sk-ant-...      # or OPENAI_API_KEY
 ```
 

@@ -41,7 +41,7 @@ class DockerRuntimeConfig(BaseSettings):
 
     # -------------------------- Image policy ---------------------------------
 
-    default_image: str = "ghcr.io/signoff/generic-sandbox:latest"
+    default_image: str = "ghcr.io/dschwartz0815/signoff/generic-sandbox:latest"
     pull_policy: Literal["always", "if_not_present", "never"] = "if_not_present"
     verify_signatures: bool = True
     #: Must match :literal:`cosign verify --certificate-identity-regexp`

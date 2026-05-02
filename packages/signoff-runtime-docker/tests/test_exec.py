@@ -211,16 +211,73 @@ async def test_wrap_context_without_docker_exec_falls_back(tmp_path: Path) -> No
         ),
         workspace=tmp_path,
     )
-    wrapped = DockerVerifierContext(
-        deliverable=base.deliverable,
-        http=base.http,
-        judge=base.judge,
-        policy=base.policy,
-        workspace=base.workspace,
-        docker_exec=None,
-    )
-    # With docker_exec=None, falls back to the super exec (local subprocess).
+    # Construct via the new composition API: wrap + None means
+    # exec falls through to ``base.exec`` (the local subprocess).
+    wrapped = DockerVerifierContext(wrapped=base, docker_exec=None)
     import sys
 
+    # Regression: previous inheritance-based version raised
+    # ``TypeError: super(type, obj): obj must be an instance or
+    # subtype of type`` here because @dataclass(slots=True)
+    # subclassing broke the bare super() call. Composition makes
+    # the fallback a plain method call on the wrapped context.
     result = await wrapped.exec([sys.executable, "-c", "print('local')"])
     assert "local" in result.stdout
+
+
+async def test_wrap_context_delegates_attribute_access(tmp_path: Path) -> None:
+    """Reads of every VerifierContext attribute go through to the
+    wrapped instance. Verifiers see no behavioural difference from
+    the in-process ctx."""
+    base = VerifierContext(
+        deliverable=Deliverable(id="dlv_attr", kind="research_report", content=None),
+        http=FakeHttpClient(),
+        judge=FakeJudge(),
+        policy=__import__("signoff.runtime.base", fromlist=["RuntimePolicy"]).RuntimePolicy(
+            timeout_seconds=42
+        ),
+        workspace=tmp_path,
+        budget_remaining_usd=1.50,
+    )
+    wrapped = DockerVerifierContext(wrapped=base, docker_exec=None)
+
+    # Every passthrough attribute reads from the wrapped instance.
+    assert wrapped.deliverable is base.deliverable
+    assert wrapped.http is base.http
+    assert wrapped.judge is base.judge
+    assert wrapped.policy is base.policy
+    assert wrapped.workspace == tmp_path
+    assert wrapped.budget_remaining_usd == 1.50
+
+
+async def test_wrap_context_setattr_writes_through(tmp_path: Path) -> None:
+    """The harness assigns ``current_verifier_meta`` and
+    ``current_claim`` on the ctx after construction; those writes
+    must land on the wrapped instance so verifier-side reads of
+    ``ctx.current_*`` see what the harness stamped."""
+    from signoff import VerifierMeta
+    from signoff.models import Claim
+
+    base = VerifierContext(
+        deliverable=Deliverable(id="dlv_setattr", kind="research_report", content=None),
+        http=FakeHttpClient(),
+        judge=FakeJudge(),
+        policy=__import__("signoff.runtime.base", fromlist=["RuntimePolicy"]).RuntimePolicy(
+            timeout_seconds=10
+        ),
+        workspace=tmp_path,
+    )
+    wrapped = DockerVerifierContext(wrapped=base, docker_exec=None)
+
+    meta = VerifierMeta(
+        name="x",
+        pack="signoff-research",
+        claim_kinds=("citation",),
+        cost_tier="cheap",
+        concurrency=1,
+    )
+    claim = Claim.model_construct(id="clm_x", text="t", kind="citation", evidence={})
+    wrapped.current_verifier_meta = meta
+    wrapped.current_claim = claim
+    assert base.current_verifier_meta is meta
+    assert base.current_claim is claim

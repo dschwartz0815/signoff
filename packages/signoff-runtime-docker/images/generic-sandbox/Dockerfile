@@ -6,7 +6,7 @@
 # sandbox images preloaded with the tools they need; this image is
 # the zero-config default for verifiers that only run shell commands.
 #
-# Built and published as ghcr.io/signoff/generic-sandbox:<version> /
+# Built and published as ghcr.io/dschwartz0815/signoff/generic-sandbox:<version> /
 # :latest by .github/workflows/publish-sandbox-images.yml, signed
 # with cosign at publish time, scanned with trivy.
 FROM python:3.12-slim-bookworm

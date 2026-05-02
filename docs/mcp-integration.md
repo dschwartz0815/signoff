@@ -145,6 +145,25 @@ Cloud-grade auth (OAuth, SSO, RBAC, per-key quotas) is a Phase 2 concern and liv
 
 Docker containers default to HTTP because there's no parent process to own a stdio pipe.
 
+### `--health` requires `--transport http`
+
+`signoff-mcp --health` probes the HTTP server's `/health` endpoint
+and exits 0/1 based on the response. It only makes sense in
+combination with `--transport http`: the stdio transport has no
+health endpoint, and stdio's lifecycle is owned by the parent
+process anyway. CI smoke tests for the published image should
+either:
+
+1. Start the container with `--transport http --port 8765 …`,
+   wait for the port, and then `curl /health` from outside, or
+2. Skip the network entirely and run a module-import smoke
+   (`python -c "import signoff_mcp"`) — that's what the repo's
+   own CI does in `.github/workflows/ci.yml`.
+
+Either is acceptable; the second is simpler when the goal is
+"verify the image is wired correctly" rather than "verify the
+service answers requests."
+
 ---
 
 ## Troubleshooting

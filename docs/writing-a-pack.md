@@ -108,7 +108,7 @@ For verifiers that use an LLM judge, mock it with [`signoff.testing.FakeJudge`](
 
 Packs whose verifiers execute untrusted code (`signoff-code`, future `signoff-data`) declare `runtime_required="docker"` on the decorator and ship a `Dockerfile` alongside the pack. The image follows [`CLAUDE.md`](../CLAUDE.md) §9.4 conventions: multi-stage, non-root, matching `.dockerignore`, preinstalled toolchain, signed with `cosign` on release.
 
-`signoff-runtime-docker` loads the image tagged `ghcr.io/signoff/<pack>-sandbox:<version>` — the pack version drives the tag. See [`docs/runtimes.md`](./runtimes.md) for the runtime side.
+`signoff-runtime-docker` loads the image tagged `ghcr.io/dschwartz0815/signoff/<pack>-sandbox:<version>` — the pack version drives the tag. See [`docs/runtimes.md`](./runtimes.md) for the runtime side.
 
 ---
 

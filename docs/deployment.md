@@ -10,7 +10,7 @@ Docker image and compose conventions: [`CLAUDE.md`](../CLAUDE.md) §9 — minima
 
 `signoff-runtime-docker` spawns an ephemeral container per verifier
 invocation. When the harness itself runs in a container (the published
-`ghcr.io/signoff/mcp` image does), it needs access to the host's Docker
+`ghcr.io/dschwartz0815/signoff/mcp` image does), it needs access to the host's Docker
 daemon to spawn sibling containers. There are three reasonable
 patterns; they trade off security against operational simplicity.
 
@@ -20,7 +20,7 @@ patterns; they trade off security against operational simplicity.
 # docker-compose.yml excerpt
 services:
   signoff-mcp:
-    image: ghcr.io/signoff/mcp:latest
+    image: ghcr.io/dschwartz0815/signoff/mcp:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./signoff.yaml:/app/signoff.yaml:ro
@@ -61,7 +61,7 @@ services:
       - dind-certs:/certs/client
       - dind-storage:/var/lib/docker
   signoff-mcp:
-    image: ghcr.io/signoff/mcp:latest
+    image: ghcr.io/dschwartz0815/signoff/mcp:latest
     environment:
       DOCKER_HOST: tcp://dind:2376
       DOCKER_TLS_VERIFY: "1"
